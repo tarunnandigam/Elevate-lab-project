@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session, send_file
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import smtplib
@@ -8,12 +8,20 @@ import os
 from functools import wraps
 import hashlib
 import logging
+import json
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+import uuid
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///incidents.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Create upload directory
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -41,10 +49,10 @@ class User(db.Model):
     
     def has_permission(self, action, incident=None):
         permissions = {
-            'admin': ['create', 'read', 'update', 'delete', 'assign', 'close'],
-            'manager': ['create', 'read', 'update', 'assign', 'close'],
-            'engineer': ['read', 'update_assigned'],
-            'reporter': ['create', 'read_own']
+            'admin': ['create', 'read', 'update', 'delete', 'assign', 'close', 'bulk_actions', 'user_management', 'system_settings'],
+            'manager': ['create', 'read', 'update', 'assign', 'close', 'bulk_assign', 'team_management'],
+            'engineer': ['read', 'update_assigned', 'work_log'],
+            'reporter': ['create', 'read_own', 'upload_attachment']
         }
         
         if action in permissions.get(self.role, []):
@@ -54,6 +62,10 @@ class User(db.Model):
                 return incident.assigned_to == self.id
             return True
         return False
+    
+    def get_team(self):
+        membership = TeamMember.query.filter_by(user_id=self.id).first()
+        return membership.team if membership else None
 
 class Incident(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -83,6 +95,59 @@ class Comment(db.Model):
     incident = db.relationship('Incident', backref='comments')
     user = db.relationship('User', backref='comments')
 
+class Attachment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    filepath = db.Column(db.String(500), nullable=False)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    file_size = db.Column(db.Integer)
+    
+    incident = db.relationship('Incident', backref='attachments')
+    uploader = db.relationship('User', backref='uploads')
+
+class WorkLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    time_spent = db.Column(db.Float)  # hours
+    logged_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    incident = db.relationship('Incident', backref='work_logs')
+    user = db.relationship('User', backref='work_logs')
+
+class Team(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    manager_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    manager = db.relationship('User', backref='managed_teams')
+
+class TeamMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    team = db.relationship('Team', backref='members')
+    user = db.relationship('User', backref='team_memberships')
+
+class AuditLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    action = db.Column(db.String(100), nullable=False)
+    resource_type = db.Column(db.String(50), nullable=False)
+    resource_id = db.Column(db.Integer)
+    details = db.Column(db.Text)
+    ip_address = db.Column(db.String(45))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='audit_logs')
+
 # Auth decorators
 def login_required(f):
     @wraps(f)
@@ -108,6 +173,19 @@ def permission_required(action):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+def log_audit(action, resource_type, resource_id=None, details=None):
+    if 'user_id' in session:
+        audit = AuditLog(
+            user_id=session['user_id'],
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+            ip_address=request.remote_addr
+        )
+        db.session.add(audit)
+        db.session.commit()
 
 # Routes
 @app.route('/')
@@ -179,11 +257,13 @@ def admin_panel():
     incident_count = Incident.query.filter_by(is_deleted=False).count()
     engineer_count = User.query.filter_by(role='engineer', is_active=True).count()
     
+    teams = Team.query.all()
     return render_template('admin_panel.html', 
                          users=users, 
                          user_count=user_count, 
                          incident_count=incident_count, 
-                         engineer_count=engineer_count)
+                         engineer_count=engineer_count,
+                         teams=teams)
 
 @app.route('/api/users', methods=['POST'])
 @login_required
@@ -277,6 +357,70 @@ def reports():
     
     return render_template('reports.html', stats=stats)
 
+@app.route('/bulk-actions')
+@login_required
+@permission_required('bulk_actions')
+def bulk_actions():
+    user = User.query.get(session['user_id'])
+    incidents = Incident.query.filter_by(is_deleted=False).all()
+    users = User.query.filter_by(role='engineer', is_active=True).all()
+    return render_template('bulk_actions.html', incidents=incidents, users=users)
+
+@app.route('/api/bulk-actions', methods=['POST'])
+@login_required
+@permission_required('bulk_actions')
+def execute_bulk_actions():
+    data = request.get_json()
+    incident_ids = data.get('incident_ids', [])
+    action = data.get('action')
+    
+    incidents = Incident.query.filter(Incident.id.in_(incident_ids), Incident.is_deleted == False).all()
+    
+    for incident in incidents:
+        if action == 'assign':
+            incident.assigned_to = data.get('user_id')
+            incident.status = 'in_progress' if data.get('user_id') else 'open'
+        elif action == 'status':
+            incident.status = data.get('status')
+            if data.get('status') == 'resolved':
+                incident.resolved_at = datetime.utcnow()
+        elif action == 'priority':
+            incident.priority = data.get('priority')
+        elif action == 'delete' and session.get('role') == 'admin':
+            incident.is_deleted = True
+    
+    db.session.commit()
+    log_audit(f'bulk_{action}', 'incident', None, f'Bulk {action} on {len(incidents)} incidents')
+    return jsonify({'success': True})
+
+@app.route('/audit-logs')
+@login_required
+def audit_logs():
+    if session.get('role') != 'admin':
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    
+    page = request.args.get('page', 1, type=int)
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).paginate(
+        page=page, per_page=50, error_out=False
+    )
+    return render_template('audit_logs.html', logs=logs)
+
+@app.route('/profile-settings', methods=['GET', 'POST'])
+@login_required
+def profile_settings():
+    user = User.query.get(session['user_id'])
+    
+    if request.method == 'POST':
+        user.email = request.form.get('email', user.email)
+        if request.form.get('password'):
+            user.set_password(request.form.get('password'))
+        db.session.commit()
+        flash('Profile updated successfully', 'success')
+        return redirect(url_for('profile_settings'))
+    
+    return render_template('profile_settings.html', user=user)
+
 @app.route('/dashboard', methods=['GET'])
 @login_required
 def dashboard():
@@ -352,7 +496,9 @@ def view_incident(id):
     
     users = User.query.filter_by(is_active=True).all()
     comments = Comment.query.filter_by(incident_id=id).order_by(Comment.created_at.asc()).all()
-    return render_template('incident_detail.html', incident=incident, users=users, comments=comments)
+    work_logs = WorkLog.query.filter_by(incident_id=id).order_by(WorkLog.logged_at.desc()).all()
+    attachments = Attachment.query.filter_by(incident_id=id).order_by(Attachment.uploaded_at.desc()).all()
+    return render_template('incident_detail.html', incident=incident, users=users, comments=comments, work_logs=work_logs, attachments=attachments)
 
 @app.route('/incident/<int:id>/comment', methods=['POST'])
 @login_required
@@ -379,12 +525,72 @@ def add_comment(id):
     db.session.commit()
     
     logger.info(f'Comment added to incident #{id} by user {session["username"]}')
+    log_audit('add_comment', 'incident', id, f'Added comment to incident #{id}')
     
     if request.is_json:
         return jsonify({'success': True, 'comment_id': comment.id})
     else:
         flash('Comment added successfully', 'success')
         return redirect(url_for('view_incident', id=id))
+
+@app.route('/incident/<int:id>/work_log', methods=['POST'])
+@login_required
+def add_work_log(id):
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    user = User.query.get(session['user_id'])
+    
+    if user.role != 'engineer' or incident.assigned_to != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    data = request.get_json()
+    work_log = WorkLog(
+        incident_id=id,
+        user_id=session['user_id'],
+        description=data['description'],
+        time_spent=float(data.get('time_spent', 0))
+    )
+    db.session.add(work_log)
+    db.session.commit()
+    
+    log_audit('add_work_log', 'incident', id, f'Added work log: {data["description"]}')
+    return jsonify({'success': True})
+
+@app.route('/incident/<int:id>/upload', methods=['POST'])
+@login_required
+def upload_attachment(id):
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file selected'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if file:
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+        
+        attachment = Attachment(
+            incident_id=id,
+            filename=filename,
+            filepath=filepath,
+            uploaded_by=session['user_id'],
+            file_size=os.path.getsize(filepath)
+        )
+        db.session.add(attachment)
+        db.session.commit()
+        
+        log_audit('upload_attachment', 'incident', id, f'Uploaded file: {filename}')
+        return jsonify({'success': True, 'filename': filename})
+
+@app.route('/attachment/<int:attachment_id>')
+@login_required
+def download_attachment(attachment_id):
+    attachment = Attachment.query.get_or_404(attachment_id)
+    return send_file(attachment.filepath, as_attachment=True, download_name=attachment.filename)
 
 # REST API Endpoints
 @app.route('/api/incidents', methods=['GET'])
@@ -661,7 +867,7 @@ if __name__ == '__main__':
             manager = User(username='manager', email='manager@example.com', role='manager')
             manager.set_password('manager123')
             
-            engineer = User(username='engineer', email='engineer@example.com', role='engineer')
+            engineer = User(username='engineer', email='engineer@example.com', role='engineer', specialization='devops')
             engineer.set_password('engineer123')
             
             reporter = User(username='reporter', email='reporter@example.com', role='reporter')

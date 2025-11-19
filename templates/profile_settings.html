@@ -39,10 +39,19 @@
                         </div>
                         {% endif %}
                         
+                        {% if user.role != 'admin' %}
                         <div class="mb-3">
                             <label class="form-label">New Password</label>
                             <input type="password" class="form-control" name="password" placeholder="Leave blank to keep current password">
+                            <small class="text-muted">Password changes are logged for security</small>
                         </div>
+                        {% else %}
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" placeholder="Admin password managed separately" readonly>
+                            <small class="text-muted">Admin passwords require special authorization to change</small>
+                        </div>
+                        {% endif %}
                         
                         <div class="mb-4">
                             <label class="form-label">Member Since</label>
@@ -88,13 +97,51 @@
                 </div>
                 <div class="content-body">
                     <div class="row">
-                        {% if user.role == 'engineer' %}
+                        {% if user.role == 'admin' %}
+                        <div class="col-md-3 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon total">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h4 class="fw-bold mb-1">{{ stats.get('total_users', 0) }}</h4>
+                                <p class="text-muted mb-0">Total Users</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon resolved">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                                <h4 class="fw-bold mb-1">{{ stats.get('total_incidents', 0) }}</h4>
+                                <p class="text-muted mb-0">Total Incidents</p>
+                            </div>
+                        </div>
+                        {% elif user.role == 'manager' %}
+                        <div class="col-md-3 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon total">
+                                    <i class="fas fa-users-cog"></i>
+                                </div>
+                                <h4 class="fw-bold mb-1">{{ stats.get('team_size', 0) }}</h4>
+                                <p class="text-muted mb-0">Team Members</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon resolved">
+                                    <i class="fas fa-tasks"></i>
+                                </div>
+                                <h4 class="fw-bold mb-1">{{ stats.get('managed_incidents', 0) }}</h4>
+                                <p class="text-muted mb-0">Managed Incidents</p>
+                            </div>
+                        </div>
+                        {% elif user.role == 'engineer' %}
                         <div class="col-md-3 mb-3">
                             <div class="stats-card">
                                 <div class="stats-icon resolved">
                                     <i class="fas fa-check-circle"></i>
                                 </div>
-                                <h4 class="fw-bold mb-1">{{ user.assigned_incidents|selectattr('status', 'equalto', 'resolved')|list|length }}</h4>
+                                <h4 class="fw-bold mb-1">{{ stats.get('resolved', 0) }}</h4>
                                 <p class="text-muted mb-0">Resolved</p>
                             </div>
                         </div>
@@ -103,7 +150,7 @@
                                 <div class="stats-icon progress">
                                     <i class="fas fa-cog"></i>
                                 </div>
-                                <h4 class="fw-bold mb-1">{{ user.assigned_incidents|selectattr('status', 'equalto', 'in_progress')|list|length }}</h4>
+                                <h4 class="fw-bold mb-1">{{ stats.get('in_progress', 0) }}</h4>
                                 <p class="text-muted mb-0">In Progress</p>
                             </div>
                         </div>
@@ -113,7 +160,7 @@
                                 <div class="stats-icon total">
                                     <i class="fas fa-clipboard-list"></i>
                                 </div>
-                                <h4 class="fw-bold mb-1">{{ user.created_incidents|length }}</h4>
+                                <h4 class="fw-bold mb-1">{{ stats.get('created', 0) }}</h4>
                                 <p class="text-muted mb-0">Created</p>
                             </div>
                         </div>
@@ -122,7 +169,7 @@
                                 <div class="stats-icon resolved">
                                     <i class="fas fa-check-circle"></i>
                                 </div>
-                                <h4 class="fw-bold mb-1">{{ user.created_incidents|selectattr('status', 'equalto', 'resolved')|list|length }}</h4>
+                                <h4 class="fw-bold mb-1">{{ stats.get('resolved', 0) }}</h4>
                                 <p class="text-muted mb-0">Resolved</p>
                             </div>
                         </div>
@@ -132,7 +179,7 @@
                                 <div class="stats-icon open">
                                     <i class="fas fa-comments"></i>
                                 </div>
-                                <h4 class="fw-bold mb-1">{{ user.comments|length }}</h4>
+                                <h4 class="fw-bold mb-1">{{ comment_count }}</h4>
                                 <p class="text-muted mb-0">Comments</p>
                             </div>
                         </div>
@@ -141,7 +188,7 @@
                                 <div class="stats-icon total">
                                     <i class="fas fa-calendar"></i>
                                 </div>
-                                <h4 class="fw-bold mb-1">{{ ((user.created_at - user.created_at)|days) or 0 }}</h4>
+                                <h4 class="fw-bold mb-1">{{ days_active }}</h4>
                                 <p class="text-muted mb-0">Days Active</p>
                             </div>
                         </div>

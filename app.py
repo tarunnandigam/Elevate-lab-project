@@ -413,13 +413,40 @@ def profile_settings():
     
     if request.method == 'POST':
         user.email = request.form.get('email', user.email)
-        if request.form.get('password'):
+        # Only allow non-admin users to change passwords
+        if request.form.get('password') and user.role != 'admin':
             user.set_password(request.form.get('password'))
+            log_audit('password_change', 'user', user.id, f'Password changed for {user.username}')
+            flash('Profile and password updated successfully', 'success')
+        else:
+            flash('Profile updated successfully', 'success')
         db.session.commit()
-        flash('Profile updated successfully', 'success')
         return redirect(url_for('profile_settings'))
     
-    return render_template('profile_settings.html', user=user)
+    # Calculate user statistics
+    days_active = (datetime.utcnow() - user.created_at).days
+    comment_count = Comment.query.filter_by(user_id=user.id).count()
+    
+    if user.role == 'admin':
+        total_users = User.query.count()
+        total_incidents = Incident.query.filter_by(is_deleted=False).count()
+        stats = {'total_users': total_users, 'total_incidents': total_incidents}
+    elif user.role == 'manager':
+        team_size = User.query.filter_by(role='engineer').count()  # Simplified team size
+        managed_incidents = Incident.query.filter_by(is_deleted=False).count()  # All incidents for manager
+        stats = {'team_size': team_size, 'managed_incidents': managed_incidents}
+    elif user.role == 'engineer':
+        resolved_count = Incident.query.filter_by(assigned_to=user.id, status='resolved').count()
+        in_progress_count = Incident.query.filter_by(assigned_to=user.id, status='in_progress').count()
+        stats = {'resolved': resolved_count, 'in_progress': in_progress_count}
+    elif user.role == 'reporter':
+        created_count = Incident.query.filter_by(created_by=user.id).count()
+        resolved_count = Incident.query.filter_by(created_by=user.id, status='resolved').count()
+        stats = {'created': created_count, 'resolved': resolved_count}
+    else:
+        stats = {}
+    
+    return render_template('profile_settings.html', user=user, days_active=days_active, stats=stats, comment_count=comment_count)
 
 @app.route('/dashboard', methods=['GET'])
 @login_required

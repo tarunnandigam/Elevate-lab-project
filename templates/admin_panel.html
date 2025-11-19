@@ -12,11 +12,11 @@
                 </div>
                 <div class="content-body">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-primary" onclick="showUserModal()">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#userModal">
                             <i class="fas fa-user-plus me-1"></i>Add User
                         </button>
-                        <button class="btn btn-outline-primary" onclick="loadUsers()">
-                            <i class="fas fa-list me-1"></i>Manage Users
+                        <button class="btn btn-outline-primary" onclick="exportUsers()">
+                            <i class="fas fa-download me-1"></i>Export Users
                         </button>
                     </div>
                 </div>
@@ -77,7 +77,10 @@
                             <tbody>
                                 {% for user in users %}
                                 <tr>
-                                    <td>{{ user.username }}</td>
+                                    <td>
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.specialization %}<br><small class="text-muted">{{ user.specialization.title() }}</small>{% endif %}
+                                    </td>
                                     <td>{{ user.email }}</td>
                                     <td><span class="badge bg-primary">{{ user.role.title() }}</span></td>
                                     <td>
@@ -87,10 +90,10 @@
                                     </td>
                                     <td>{{ user.created_at.strftime('%m/%d/%Y') }}</td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="editUser({{ user.id }})">
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editUser({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.role }}', '{{ user.specialization or '' }}')">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="toggleUser({{ user.id }})">
+                                        <button class="btn btn-sm btn-outline-{% if user.is_active %}danger{% else %}success{% endif %}" onclick="toggleUser({{ user.id }}, {{ user.is_active|lower }})">
                                             <i class="fas fa-{% if user.is_active %}ban{% else %}check{% endif %}"></i>
                                         </button>
                                     </td>
@@ -104,4 +107,156 @@
         </div>
     </div>
 </div>
+
+<!-- User Creation/Edit Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalTitle">Add New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <div class="mb-3">
+                        <label class="form-label">Username *</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password *</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role *</label>
+                        <select class="form-select" id="role" onchange="toggleSpecialization()" required>
+                            <option value="">Select Role</option>
+                            <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
+                            <option value="engineer">Engineer</option>
+                            <option value="reporter">Reporter</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="specializationDiv" style="display:none">
+                        <label class="form-label">Specialization</label>
+                        <select class="form-select" id="specialization">
+                            <option value="">General</option>
+                            <option value="devops">DevOps Engineer</option>
+                            <option value="network">Network Engineer</option>
+                            <option value="security">Security Engineer</option>
+                            <option value="database">Database Engineer</option>
+                            <option value="frontend">Frontend Engineer</option>
+                            <option value="backend">Backend Engineer</option>
+                            <option value="mobile">Mobile Engineer</option>
+                            <option value="qa">QA Engineer</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Permissions</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="canCreateIncidents" checked>
+                            <label class="form-check-label">Can Create Incidents</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="canViewAllIncidents">
+                            <label class="form-check-label">Can View All Incidents</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="canAssignIncidents">
+                            <label class="form-check-label">Can Assign Incidents</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">Save User</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let editingUserId = null;
+
+function toggleSpecialization() {
+    const role = document.getElementById('role').value;
+    const specializationDiv = document.getElementById('specializationDiv');
+    specializationDiv.style.display = role === 'engineer' ? 'block' : 'none';
+}
+
+function editUser(id, username, email, role, specialization) {
+    editingUserId = id;
+    document.getElementById('userModalTitle').textContent = 'Edit User';
+    document.getElementById('username').value = username;
+    document.getElementById('email').value = email;
+    document.getElementById('role').value = role;
+    document.getElementById('specialization').value = specialization;
+    document.getElementById('password').required = false;
+    toggleSpecialization();
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+}
+
+function saveUser() {
+    const formData = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        role: document.getElementById('role').value,
+        specialization: document.getElementById('specialization').value,
+        permissions: JSON.stringify({
+            canCreateIncidents: document.getElementById('canCreateIncidents').checked,
+            canViewAllIncidents: document.getElementById('canViewAllIncidents').checked,
+            canAssignIncidents: document.getElementById('canAssignIncidents').checked
+        })
+    };
+    
+    const url = editingUserId ? `/api/users/${editingUserId}` : '/api/users';
+    const method = editingUserId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Error saving user');
+        }
+    });
+}
+
+function toggleUser(userId, isActive) {
+    fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !isActive })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function exportUsers() {
+    window.open('/api/users/export', '_blank');
+}
+
+// Reset form when modal closes
+document.getElementById('userModal').addEventListener('hidden.bs.modal', function() {
+    editingUserId = null;
+    document.getElementById('userForm').reset();
+    document.getElementById('userModalTitle').textContent = 'Add New User';
+    document.getElementById('password').required = true;
+    document.getElementById('specializationDiv').style.display = 'none';
+});
+</script>
 {% endblock %}

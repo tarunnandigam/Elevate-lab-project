@@ -20,26 +20,26 @@
                                 <div class="stats-icon total">
                                     <i class="fas fa-chart-line"></i>
                                 </div>
-                                <h3 class="fw-bold mb-1">85%</h3>
+                                <h3 class="fw-bold mb-1">{{ stats.resolution_rate }}%</h3>
                                 <p class="text-muted mb-0">Resolution Rate</p>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6 mb-3">
                             <div class="stats-card">
                                 <div class="stats-icon progress">
-                                    <i class="fas fa-clock"></i>
+                                    <i class="fas fa-clipboard-list"></i>
                                 </div>
-                                <h3 class="fw-bold mb-1">2.5h</h3>
-                                <p class="text-muted mb-0">Avg Response Time</p>
+                                <h3 class="fw-bold mb-1">{{ stats.total_incidents }}</h3>
+                                <p class="text-muted mb-0">Total Incidents</p>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6 mb-3">
                             <div class="stats-card">
                                 <div class="stats-icon resolved">
-                                    <i class="fas fa-users"></i>
+                                    <i class="fas fa-check-circle"></i>
                                 </div>
-                                <h3 class="fw-bold mb-1">12</h3>
-                                <p class="text-muted mb-0">Active Engineers</p>
+                                <h3 class="fw-bold mb-1">{{ stats.resolved_incidents }}</h3>
+                                <p class="text-muted mb-0">Resolved</p>
                             </div>
                         </div>
                         <div class="col-lg-3 col-md-6 mb-3">
@@ -47,8 +47,8 @@
                                 <div class="stats-icon open">
                                     <i class="fas fa-exclamation-triangle"></i>
                                 </div>
-                                <h3 class="fw-bold mb-1">3</h3>
-                                <p class="text-muted mb-0">SLA Breaches</p>
+                                <h3 class="fw-bold mb-1">{{ stats.critical_incidents }}</h3>
+                                <p class="text-muted mb-0">Critical Issues</p>
                             </div>
                         </div>
                     </div>
@@ -80,27 +80,23 @@
                 </div>
                 <div class="content-body">
                     <div class="list-group list-group-flush">
+                        {% for engineer in stats.engineer_stats[:3] %}
                         <div class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>John Engineer</strong>
-                                <small class="d-block text-muted">15 resolved this month</small>
+                                <strong>{{ engineer.name }}</strong>
+                                <small class="d-block text-muted">{{ engineer.specialization }} - {{ engineer.resolved }} resolved, {{ engineer.in_progress }} in progress</small>
                             </div>
-                            <span class="badge bg-success">🥇</span>
+                            <span class="badge {% if loop.index == 1 %}bg-success{% elif loop.index == 2 %}bg-warning{% else %}bg-info{% endif %}">
+                                {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% else %}🥉{% endif %}
+                            </span>
                         </div>
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>Jane Developer</strong>
-                                <small class="d-block text-muted">12 resolved this month</small>
-                            </div>
-                            <span class="badge bg-warning">🥈</span>
+                        {% endfor %}
+                        {% if stats.engineer_stats|length == 0 %}
+                        <div class="list-group-item text-center text-muted">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <p>No engineer data available</p>
                         </div>
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>Mike Support</strong>
-                                <small class="d-block text-muted">10 resolved this month</small>
-                            </div>
-                            <span class="badge bg-info">🥉</span>
-                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

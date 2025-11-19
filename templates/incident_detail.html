@@ -60,13 +60,13 @@
                             
                             {% if session.role in ['admin', 'manager'] %}
                             <div class="mb-3">
-                                <label class="form-label">Assigned To:</label>
+                                <label class="form-label">Assign Engineer:</label>
                                 <select class="form-select" id="assignSelect">
                                     <option value="">Unassigned</option>
                                     {% for user in users %}
                                     {% if user.role == 'engineer' %}
                                     <option value="{{ user.id }}" {% if incident.assigned_to == user.id %}selected{% endif %}>
-                                        {{ user.username }}
+                                        {{ user.username }} {% if user.specialization %}({{ user.specialization.title() }}){% endif %}
                                     </option>
                                     {% endif %}
                                     {% endfor %}

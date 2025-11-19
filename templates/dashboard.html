@@ -102,11 +102,11 @@
                         </div>
                         <div class="col-md-3">
                             <select class="form-select form-select-sm" id="assigneeFilter" onchange="applyFilters()">
-                                <option value="">All Assignees</option>
+                                <option value="">All Engineers</option>
                                 <option value="unassigned">Unassigned</option>
                                 {% for user in users %}
                                 {% if user.role == 'engineer' %}
-                                <option value="{{ user.id }}">{{ user.username }}</option>
+                                <option value="{{ user.id }}">{{ user.username }} {% if user.specialization %}({{ user.specialization.title() }}){% endif %}</option>
                                 {% endif %}
                                 {% endfor %}
                             </select>

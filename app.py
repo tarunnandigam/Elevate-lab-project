@@ -27,9 +27,11 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     role = db.Column(db.String(20), nullable=False, default='reporter')  # admin, manager, engineer, reporter
+    specialization = db.Column(db.String(50))  # devops, network, security, database, frontend, backend
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    permissions = db.Column(db.Text)  # JSON string of permissions
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -183,6 +185,58 @@ def admin_panel():
                          incident_count=incident_count, 
                          engineer_count=engineer_count)
 
+@app.route('/api/users', methods=['POST'])
+@login_required
+def create_user():
+    user = User.query.get(session['user_id'])
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.get_json()
+    
+    if User.query.filter_by(username=data['username']).first():
+        return jsonify({'error': 'Username already exists'}), 400
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({'error': 'Email already exists'}), 400
+    
+    new_user = User(
+        username=data['username'],
+        email=data['email'],
+        role=data['role'],
+        specialization=data.get('specialization'),
+        permissions=data.get('permissions', '')
+    )
+    new_user.set_password(data['password'])
+    
+    db.session.add(new_user)
+    db.session.commit()
+    
+    logger.info(f'User {data["username"]} created by admin {session["username"]}')
+    return jsonify({'success': True, 'user_id': new_user.id})
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@login_required
+def update_user(user_id):
+    admin = User.query.get(session['user_id'])
+    if admin.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    
+    if 'is_active' in data:
+        user.is_active = data['is_active']
+    if 'role' in data:
+        user.role = data['role']
+    if 'specialization' in data:
+        user.specialization = data['specialization']
+    if 'permissions' in data:
+        user.permissions = data['permissions']
+    
+    db.session.commit()
+    logger.info(f'User {user.username} updated by admin {session["username"]}')
+    return jsonify({'success': True})
+
 @app.route('/reports')
 @login_required
 def reports():
@@ -191,7 +245,37 @@ def reports():
         flash('Access denied', 'error')
         return redirect(url_for('dashboard'))
     
-    return render_template('reports.html')
+    # Get real statistics
+    total_incidents = Incident.query.filter_by(is_deleted=False).count()
+    open_incidents = Incident.query.filter_by(status='open', is_deleted=False).count()
+    resolved_incidents = Incident.query.filter_by(status='resolved', is_deleted=False).count()
+    critical_incidents = Incident.query.filter_by(priority='critical', is_deleted=False).count()
+    
+    # Engineer performance
+    engineers = User.query.filter_by(role='engineer', is_active=True).all()
+    engineer_stats = []
+    for eng in engineers:
+        resolved_count = Incident.query.filter_by(assigned_to=eng.id, status='resolved').count()
+        in_progress_count = Incident.query.filter_by(assigned_to=eng.id, status='in_progress').count()
+        engineer_stats.append({
+            'name': eng.username,
+            'specialization': eng.specialization or 'General',
+            'resolved': resolved_count,
+            'in_progress': in_progress_count
+        })
+    
+    engineer_stats.sort(key=lambda x: x['resolved'], reverse=True)
+    
+    stats = {
+        'total_incidents': total_incidents,
+        'open_incidents': open_incidents,
+        'resolved_incidents': resolved_incidents,
+        'critical_incidents': critical_incidents,
+        'resolution_rate': round((resolved_incidents / total_incidents * 100) if total_incidents > 0 else 0, 1),
+        'engineer_stats': engineer_stats[:10]  # Top 10
+    }
+    
+    return render_template('reports.html', stats=stats)
 
 @app.route('/dashboard', methods=['GET'])
 @login_required

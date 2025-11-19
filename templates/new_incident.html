@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}New Incident - Incident Management{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="content-card fade-in-up">
+                <div class="content-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-plus me-2"></i>Create New Incident
+                    </h4>
+                </div>
+                <div class="content-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="title" class="form-label">Incident Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" required 
+                                       placeholder="Brief description of the incident">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="priority" class="form-label">Priority *</label>
+                                <select class="form-select" id="priority" name="priority" required>
+                                    <option value="">Select Priority</option>
+                                    <option value="critical">🔴 Critical</option>
+                                    <option value="high">🟠 High</option>
+                                    <option value="medium">🟡 Medium</option>
+                                    <option value="low">🟢 Low</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="severity" class="form-label">Severity *</label>
+                                <select class="form-select" id="severity" name="severity" required>
+                                    <option value="">Select Severity</option>
+                                    <option value="critical">🔴 Critical</option>
+                                    <option value="high">🟠 High</option>
+                                    <option value="medium">🟡 Medium</option>
+                                    <option value="low">🟢 Low</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="category" class="form-label">Category *</label>
+                                <select class="form-select" id="category" name="category" required>
+                                    <option value="">Select Category</option>
+                                    <option value="infrastructure">🏗️ Infrastructure</option>
+                                    <option value="application">💻 Application</option>
+                                    <option value="network">🌐 Network</option>
+                                    <option value="security">🔒 Security</option>
+                                    <option value="database">🗄️ Database</option>
+                                    <option value="other">📋 Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="description" class="form-label">Description *</label>
+                            <textarea class="form-control" id="description" name="description" rows="6" required
+                                      placeholder="Detailed description of the incident, including steps to reproduce, impact, and any relevant information..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Create Incident
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Guidelines Card -->
+            <div class="content-card mt-4 fade-in-up" style="animation-delay: 0.2s">
+                <div class="content-body">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>Incident Reporting Guidelines
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Severity Levels:</h6>
+                            <ul class="list-unstyled small">
+                                <li><span class="badge severity-critical me-2">Critical</span>System down, major outage</li>
+                                <li><span class="badge severity-high me-2">High</span>Significant impact, urgent fix needed</li>
+                                <li><span class="badge severity-medium me-2">Medium</span>Moderate impact, fix within hours</li>
+                                <li><span class="badge severity-low me-2">Low</span>Minor issue, fix when convenient</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Best Practices:</h6>
+                            <ul class="small">
+                                <li>Use clear, descriptive titles</li>
+                                <li>Include error messages and logs</li>
+                                <li>Specify affected systems/users</li>
+                                <li>Add screenshots if helpful</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

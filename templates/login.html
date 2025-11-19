@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Incident Management{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card fade-in-up">
+        <div class="login-header">
+            <i class="fas fa-shield-alt fa-3x mb-3"></i>
+            <h2 class="mb-0">IncidentHub</h2>
+            <p class="mb-0 opacity-75">Secure Incident Management</p>
+        </div>
+        <div class="login-body">
+            <form method="POST">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mb-3">
+                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                </button>
+            </form>
+            <div class="text-center">
+                <small class="text-muted">
+                    Demo: admin / admin123 | <a href="{{ url_for('signup') }}">Sign Up</a>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -226,9 +226,52 @@ def new_incident():
 @app.route('/incident/<int:id>')
 @login_required
 def view_incident(id):
-    incident = Incident.query.get_or_404(id)
-    users = User.query.all()
-    return render_template('incident_detail.html', incident=incident, users=users)
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    user = User.query.get(session['user_id'])
+    
+    # Check permissions
+    if user.role == 'reporter' and incident.created_by != user.id:
+        flash('Permission denied', 'error')
+        return redirect(url_for('dashboard'))
+    elif user.role == 'engineer' and incident.assigned_to != user.id and incident.created_by != user.id:
+        flash('Permission denied', 'error')
+        return redirect(url_for('dashboard'))
+    
+    users = User.query.filter_by(is_active=True).all()
+    comments = Comment.query.filter_by(incident_id=id).order_by(Comment.created_at.asc()).all()
+    return render_template('incident_detail.html', incident=incident, users=users, comments=comments)
+
+@app.route('/incident/<int:id>/comment', methods=['POST'])
+@login_required
+def add_comment(id):
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    user = User.query.get(session['user_id'])
+    
+    # Check permissions
+    if user.role == 'reporter' and incident.created_by != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    elif user.role == 'engineer' and incident.assigned_to != user.id and incident.created_by != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    content = request.form.get('content') or request.json.get('content')
+    if not content:
+        return jsonify({'error': 'Comment content required'}), 400
+    
+    comment = Comment(
+        incident_id=id,
+        user_id=session['user_id'],
+        content=content
+    )
+    db.session.add(comment)
+    db.session.commit()
+    
+    logger.info(f'Comment added to incident #{id} by user {session["username"]}')
+    
+    if request.is_json:
+        return jsonify({'success': True, 'comment_id': comment.id})
+    else:
+        flash('Comment added successfully', 'success')
+        return redirect(url_for('view_incident', id=id))
 
 # REST API Endpoints
 @app.route('/api/incidents', methods=['GET'])

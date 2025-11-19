@@ -12,6 +12,7 @@ import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import uuid
+from config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, FROM_EMAIL, EMAIL_TEMPLATES
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -417,6 +418,7 @@ def profile_settings():
         if request.form.get('password') and user.role != 'admin':
             user.set_password(request.form.get('password'))
             log_audit('password_change', 'user', user.id, f'Password changed for {user.username}')
+            send_password_change_notification(user, request.remote_addr)
             flash('Profile and password updated successfully', 'success')
         else:
             flash('Profile updated successfully', 'success')
@@ -502,7 +504,7 @@ def new_incident():
         db.session.add(incident)
         db.session.commit()
         logger.info(f'Incident #{incident.id} created by user {session["username"]}')
-        send_notification(incident, 'created')
+        send_incident_notification(incident, 'incident_created')
         flash('Incident created successfully', 'success')
         return redirect(url_for('dashboard'))
     return render_template('new_incident.html')
@@ -553,6 +555,7 @@ def add_comment(id):
     
     logger.info(f'Comment added to incident #{id} by user {session["username"]}')
     log_audit('add_comment', 'incident', id, f'Added comment to incident #{id}')
+    send_incident_notification(incident, 'comment_added', commenter=session.get('username', 'Unknown'), comment=content)
     
     if request.is_json:
         return jsonify({'success': True, 'comment_id': comment.id})
@@ -665,7 +668,7 @@ def api_create_incident():
     db.session.add(incident)
     db.session.commit()
     logger.info(f'Incident #{incident.id} created via API by user {session["username"]}')
-    send_notification(incident, 'created')
+    send_incident_notification(incident, 'incident_created')
     return jsonify({'success': True, 'id': incident.id}), 201
 
 @app.route('/api/incidents/<int:id>', methods=['GET'])
@@ -756,7 +759,7 @@ def assign_incident(id):
     
     db.session.commit()
     logger.info(f'Incident #{incident.id} assigned to user {user_id} by {session["username"]}')
-    send_notification(incident, 'assigned')
+    send_incident_notification(incident, 'incident_assigned', assigned_by=session.get('username', 'System'))
     return jsonify({'success': True})
 
 @app.route('/api/incident/<int:id>/status', methods=['POST'])
@@ -781,8 +784,145 @@ def update_status(id):
     
     db.session.commit()
     logger.info(f'Incident #{incident.id} status updated to {status} by {session["username"]}')
-    send_notification(incident, 'status_updated')
+    old_status = incident.status
+    send_incident_notification(incident, 'status_changed', old_status=old_status, changed_by=session.get('username', 'System'))
     return jsonify({'success': True})
+
+def send_email(to_emails, subject, body):
+    """Reusable function to send emails via SMTP"""
+    try:
+        if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD]):
+            logger.warning('SMTP configuration incomplete, skipping email')
+            return False
+            
+        if isinstance(to_emails, str):
+            to_emails = [to_emails]
+            
+        msg = MIMEText(body)
+        msg['From'] = FROM_EMAIL or SMTP_USER
+        msg['To'] = ', '.join(to_emails)
+        msg['Subject'] = subject
+        
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_USER, to_emails, msg.as_string())
+        server.quit()
+        
+        logger.info(f'Email sent to {len(to_emails)} recipients: {subject}')
+        return True
+        
+    except Exception as e:
+        logger.error(f'Email sending failed: {str(e)}')
+        return False
+
+def get_incident_subscribers(incident):
+    """Get all users who should receive notifications for an incident"""
+    subscribers = set()
+    
+    # Always include creator
+    creator = User.query.get(incident.created_by)
+    if creator and creator.is_active:
+        subscribers.add(creator.email)
+    
+    # Include assignee if exists
+    if incident.assigned_to:
+        assignee = User.query.get(incident.assigned_to)
+        if assignee and assignee.is_active:
+            subscribers.add(assignee.email)
+    
+    # Include admins and managers for critical incidents
+    if incident.priority == 'critical':
+        managers = User.query.filter(
+            User.role.in_(['admin', 'manager']), 
+            User.is_active == True
+        ).all()
+        for manager in managers:
+            subscribers.add(manager.email)
+    
+    return list(subscribers)
+
+def send_incident_notification(incident, notification_type, **kwargs):
+    """Send incident-related notifications"""
+    try:
+        template = EMAIL_TEMPLATES.get(notification_type)
+        if not template:
+            logger.error(f'Unknown notification type: {notification_type}')
+            return
+        
+        # Get recipients based on notification type
+        if notification_type == 'incident_created':
+            recipients = get_incident_subscribers(incident)
+            # Add all admins and managers for new incidents
+            staff = User.query.filter(
+                User.role.in_(['admin', 'manager']), 
+                User.is_active == True
+            ).all()
+            for user in staff:
+                recipients.append(user.email)
+        elif notification_type == 'incident_assigned':
+            if incident.assigned_to:
+                assignee = User.query.get(incident.assigned_to)
+                recipients = [assignee.email] if assignee else []
+            else:
+                recipients = []
+        else:
+            recipients = get_incident_subscribers(incident)
+        
+        if not recipients:
+            return
+        
+        # Remove duplicates
+        recipients = list(set(recipients))
+        
+        # Prepare template variables
+        creator = User.query.get(incident.created_by)
+        assignee = User.query.get(incident.assigned_to) if incident.assigned_to else None
+        
+        template_vars = {
+            'incident_id': incident.id,
+            'title': incident.title,
+            'priority': incident.priority.title(),
+            'severity': incident.severity.title(),
+            'category': incident.category.title(),
+            'reporter': creator.username if creator else 'Unknown',
+            'description': incident.description,
+            'incident_url': f'{request.host_url}incident/{incident.id}',
+            'assigned_by': kwargs.get('assigned_by', 'System'),
+            'old_status': kwargs.get('old_status', '').replace('_', ' ').title(),
+            'new_status': incident.status.replace('_', ' ').title(),
+            'changed_by': kwargs.get('changed_by', 'System'),
+            'commenter': kwargs.get('commenter', 'Unknown'),
+            'comment': kwargs.get('comment', ''),
+        }
+        
+        subject = template['subject'].format(**template_vars)
+        body = template['body'].format(**template_vars)
+        
+        send_email(recipients, subject, body)
+        
+    except Exception as e:
+        logger.error(f'Incident notification failed: {str(e)}')
+
+def send_password_change_notification(user, ip_address=None):
+    """Send password change notification"""
+    try:
+        template = EMAIL_TEMPLATES['password_changed']
+        
+        template_vars = {
+            'username': user.username,
+            'timestamp': datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC'),
+            'ip_address': ip_address or 'Unknown',
+            'user_agent': request.headers.get('User-Agent', 'Unknown')
+        }
+        
+        subject = template['subject'].format(**template_vars)
+        body = template['body'].format(**template_vars)
+        
+        send_email([user.email], subject, body)
+        
+    except Exception as e:
+        logger.error(f'Password change notification failed: {str(e)}')
 
 def send_notification(incident, action):
     try:

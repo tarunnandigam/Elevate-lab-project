@@ -441,12 +441,13 @@ def update_status(id):
 def send_notification(incident, action):
     try:
         # Email configuration
-        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_server = os.getenv('SMTP_SERVER')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
         smtp_user = os.getenv('SMTP_USER')
         smtp_pass = os.getenv('SMTP_PASS')
         
-        if not all([smtp_user, smtp_pass]):
+        if not all([smtp_server, smtp_user, smtp_pass]):
+            logger.warning('SMTP configuration incomplete, skipping email notification')
             return
             
         creator = User.query.get(incident.created_by)
@@ -455,32 +456,86 @@ def send_notification(incident, action):
         recipients = [creator.email]
         if assignee and assignee.email not in recipients:
             recipients.append(assignee.email)
+        
+        # Add managers and admins for critical incidents
+        if incident.priority == 'critical':
+            managers = User.query.filter(User.role.in_(['admin', 'manager']), User.is_active == True).all()
+            for manager in managers:
+                if manager.email not in recipients:
+                    recipients.append(manager.email)
             
         msg = MIMEMultipart()
         msg['From'] = smtp_user
         msg['To'] = ', '.join(recipients)
-        msg['Subject'] = f'Incident #{incident.id}: {incident.title}'
         
-        body = f"""
-        Incident {action.replace('_', ' ').title()}: #{incident.id}
+        # Enhanced subject line
+        priority_emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}
+        subject = f"{priority_emoji.get(incident.priority, '')} Incident #{incident.id}: {incident.title}"
+        msg['Subject'] = subject
         
-        Title: {incident.title}
-        Severity: {incident.severity.title()}
-        Status: {incident.status.replace('_', ' ').title()}
-        Category: {incident.category.title()}
-        
-        Description: {incident.description}
+        # Enhanced email body with HTML
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+                    Incident {action.replace('_', ' ').title()}: #{incident.id}
+                </h2>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">{incident.title}</h3>
+                    <p><strong>Priority:</strong> <span style="color: {'#e74c3c' if incident.priority == 'critical' else '#f39c12' if incident.priority == 'high' else '#f1c40f' if incident.priority == 'medium' else '#27ae60'};">{incident.priority.title()}</span></p>
+                    <p><strong>Severity:</strong> {incident.severity.title()}</p>
+                    <p><strong>Status:</strong> {incident.status.replace('_', ' ').title()}</p>
+                    <p><strong>Category:</strong> {incident.category.title()}</p>
+                    <p><strong>Created by:</strong> {creator.username}</p>
+                    {f'<p><strong>Assigned to:</strong> {assignee.username}</p>' if assignee else ''}
+                </div>
+                
+                <div style="background: white; padding: 15px; border-left: 4px solid #3498db;">
+                    <h4 style="margin-top: 0;">Description:</h4>
+                    <p>{incident.description}</p>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #ecf0f1; border-radius: 5px;">
+                    <p style="margin: 0; font-size: 12px; color: #7f8c8d;">
+                        This is an automated notification from IncidentHub.<br>
+                        Incident created: {incident.created_at.strftime('%B %d, %Y at %I:%M %p')}
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
         """
         
-        msg.attach(MIMEText(body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
         
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(smtp_user, smtp_pass)
         server.send_message(msg)
         server.quit()
+        
+        logger.info(f'Email notification sent for incident #{incident.id} action: {action} to {len(recipients)} recipients')
+        
     except Exception as e:
-        print(f"Email notification failed: {e}")
+        logger.error(f'Email notification failed for incident #{incident.id}: {str(e)}')
+
+@app.errorhandler(404)
+def not_found_error(error):
+    logger.warning(f'404 error: {request.url}')
+    return render_template('error.html', error_code=404, error_message='Page not found'), 404
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    logger.warning(f'403 error: {request.url} by user {session.get("username", "Anonymous")}')
+    return render_template('error.html', error_code=403, error_message='Access forbidden'), 403
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f'500 error: {str(error)}')
+    db.session.rollback()
+    return render_template('error.html', error_code=500, error_message='Internal server error'), 500
 
 if __name__ == '__main__':
     with app.app_context():

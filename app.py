@@ -164,7 +164,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route('/dashboard')
+@app.route('/dashboard', methods=['GET'])
 @login_required
 def dashboard():
     user = User.query.get(session['user_id'])

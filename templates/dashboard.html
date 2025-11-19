@@ -50,17 +50,37 @@
             <div class="content-card fade-in-up" style="animation-delay: 0.4s">
                 <div class="content-header">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="mb-0">
-                            <i class="fas fa-list me-2"></i>Incidents Dashboard
-                        </h4>
-                        {% if session.role in ['admin', 'manager', 'reporter'] %}
-                        <a href="{{ url_for('new_incident') }}" class="btn btn-light btn-sm">
-                            <i class="fas fa-plus me-1"></i>New Incident
-                        </a>
-                        {% endif %}
+                        <div>
+                            <h4 class="mb-0">
+                                <i class="fas fa-list me-2"></i>
+                                {% if session.role == 'admin' %}System Overview
+                                {% elif session.role == 'manager' %}Team Dashboard
+                                {% elif session.role == 'engineer' %}My Assignments
+                                {% else %}My Incidents{% endif %}
+                            </h4>
+                            <small class="text-muted">
+                                {% if session.role == 'admin' %}Full system control and management
+                                {% elif session.role == 'manager' %}Triage and team leadership
+                                {% elif session.role == 'engineer' %}Assigned incidents to resolve
+                                {% else %}Track your reported issues{% endif %}
+                            </small>
+                        </div>
+                        <div>
+                            {% if session.role in ['admin', 'manager', 'reporter'] %}
+                            <a href="{{ url_for('new_incident') }}" class="btn btn-primary btn-sm me-2">
+                                <i class="fas fa-plus me-1"></i>New Incident
+                            </a>
+                            {% endif %}
+                            {% if session.role == 'admin' %}
+                            <a href="{{ url_for('admin_panel') }}" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-cog me-1"></i>Admin
+                            </a>
+                            {% endif %}
+                        </div>
                     </div>
                     
-                    <!-- Filters -->
+                    <!-- Role-specific Filters -->
+                    {% if session.role in ['admin', 'manager'] %}
                     <div class="row g-2">
                         <div class="col-md-3">
                             <select class="form-select form-select-sm" id="statusFilter" onchange="applyFilters()">
@@ -83,8 +103,11 @@
                         <div class="col-md-3">
                             <select class="form-select form-select-sm" id="assigneeFilter" onchange="applyFilters()">
                                 <option value="">All Assignees</option>
+                                <option value="unassigned">Unassigned</option>
                                 {% for user in users %}
+                                {% if user.role == 'engineer' %}
                                 <option value="{{ user.id }}">{{ user.username }}</option>
+                                {% endif %}
                                 {% endfor %}
                             </select>
                         </div>
@@ -94,6 +117,26 @@
                             </button>
                         </div>
                     </div>
+                    {% elif session.role == 'engineer' %}
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <select class="form-select form-select-sm" id="statusFilter" onchange="applyFilters()">
+                                <option value="">All Status</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="resolved">Resolved</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <select class="form-select form-select-sm" id="priorityFilter" onchange="applyFilters()">
+                                <option value="">All Priority</option>
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="content-body">
                     {% if incidents %}
@@ -129,12 +172,35 @@
                                             {{ incident.description[:100] }}{% if incident.description|length > 100 %}...{% endif %}
                                         </p>
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <small class="text-muted">
-                                                <i class="fas fa-tag me-1"></i>{{ incident.category.title() }}
-                                            </small>
-                                            <a href="{{ url_for('view_incident', id=incident.id) }}" class="btn btn-primary btn-sm">
-                                                <i class="fas fa-eye me-1"></i>View
-                                            </a>
+                                            <div>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-tag me-1"></i>{{ incident.category.title() }}
+                                                </small>
+                                                {% if incident.assigned_to %}
+                                                <small class="text-info ms-2">
+                                                    <i class="fas fa-user me-1"></i>{{ incident.assignee.username }}
+                                                </small>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                {% if session.role == 'manager' and incident.status == 'open' %}
+                                                <button class="btn btn-warning btn-sm me-1" onclick="quickAssign({{ incident.id }})">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </button>
+                                                {% endif %}
+                                                {% if session.role == 'admin' %}
+                                                <button class="btn btn-danger btn-sm me-1" onclick="deleteIncident({{ incident.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                                <a href="{{ url_for('view_incident', id=incident.id) }}" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-eye me-1"></i>
+                                                    {% if session.role == 'engineer' %}Work
+                                                    {% elif session.role == 'manager' %}Manage
+                                                    {% elif session.role == 'admin' %}Control
+                                                    {% else %}View{% endif %}
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -175,12 +241,55 @@ function clearFilters() {
     window.location.href = '{{ url_for("dashboard") }}';
 }
 
+function quickAssign(incidentId) {
+    // Simple assignment to first available engineer
+    const engineers = {{ users|selectattr('role', 'equalto', 'engineer')|list|tojson }};
+    if (engineers.length > 0) {
+        fetch(`/api/incident/${incidentId}/assign`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ user_id: engineers[0].id })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function deleteIncident(incidentId) {
+    if (confirm('Are you sure you want to delete this incident?')) {
+        fetch(`/api/incidents/${incidentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
 // Set filter values from URL params
 document.addEventListener('DOMContentLoaded', function() {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('status')) document.getElementById('statusFilter').value = params.get('status');
-    if (params.get('priority')) document.getElementById('priorityFilter').value = params.get('priority');
-    if (params.get('assignee')) document.getElementById('assigneeFilter').value = params.get('assignee');
+    if (document.getElementById('statusFilter') && params.get('status')) {
+        document.getElementById('statusFilter').value = params.get('status');
+    }
+    if (document.getElementById('priorityFilter') && params.get('priority')) {
+        document.getElementById('priorityFilter').value = params.get('priority');
+    }
+    if (document.getElementById('assigneeFilter') && params.get('assignee')) {
+        document.getElementById('assigneeFilter').value = params.get('assignee');
+    }
 });
 </script>
 {% endblock %}

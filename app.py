@@ -164,6 +164,35 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/admin_panel')
+@login_required
+def admin_panel():
+    user = User.query.get(session['user_id'])
+    if user.role != 'admin':
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    
+    users = User.query.all()
+    user_count = User.query.count()
+    incident_count = Incident.query.filter_by(is_deleted=False).count()
+    engineer_count = User.query.filter_by(role='engineer', is_active=True).count()
+    
+    return render_template('admin_panel.html', 
+                         users=users, 
+                         user_count=user_count, 
+                         incident_count=incident_count, 
+                         engineer_count=engineer_count)
+
+@app.route('/reports')
+@login_required
+def reports():
+    user = User.query.get(session['user_id'])
+    if user.role not in ['admin', 'manager']:
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('reports.html')
+
 @app.route('/dashboard', methods=['GET'])
 @login_required
 def dashboard():

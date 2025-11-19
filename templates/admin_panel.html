@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Incident Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="content-card">
+                <div class="content-header">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>User Management</h5>
+                </div>
+                <div class="content-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="showUserModal()">
+                            <i class="fas fa-user-plus me-1"></i>Add User
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="loadUsers()">
+                            <i class="fas fa-list me-1"></i>Manage Users
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 mb-4">
+            <div class="content-card">
+                <div class="content-header">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>System Settings</h5>
+                </div>
+                <div class="content-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-secondary">
+                            <i class="fas fa-envelope me-1"></i>SMTP Config
+                        </button>
+                        <button class="btn btn-outline-secondary">
+                            <i class="fas fa-download me-1"></i>Export Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 mb-4">
+            <div class="content-card">
+                <div class="content-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>System Stats</h5>
+                </div>
+                <div class="content-body">
+                    <p><strong>Total Users:</strong> {{ user_count }}</p>
+                    <p><strong>Total Incidents:</strong> {{ incident_count }}</p>
+                    <p><strong>Active Engineers:</strong> {{ engineer_count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="content-card">
+                <div class="content-header">
+                    <h5 class="mb-0"><i class="fas fa-users-cog me-2"></i>All Users</h5>
+                </div>
+                <div class="content-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td><span class="badge bg-primary">{{ user.role.title() }}</span></td>
+                                    <td>
+                                        <span class="badge {% if user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>{{ user.created_at.strftime('%m/%d/%Y') }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editUser({{ user.id }})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="toggleUser({{ user.id }})">
+                                            <i class="fas fa-{% if user.is_active %}ban{% else %}check{% endif %}"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Incident Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="content-card">
+                <div class="content-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        {% if session.role == 'admin' %}System Analytics{% else %}Team Performance{% endif %}
+                    </h4>
+                </div>
+                <div class="content-body">
+                    <div class="row">
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon total">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <h3 class="fw-bold mb-1">85%</h3>
+                                <p class="text-muted mb-0">Resolution Rate</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon progress">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <h3 class="fw-bold mb-1">2.5h</h3>
+                                <p class="text-muted mb-0">Avg Response Time</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon resolved">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h3 class="fw-bold mb-1">12</h3>
+                                <p class="text-muted mb-0">Active Engineers</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <div class="stats-icon open">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <h3 class="fw-bold mb-1">3</h3>
+                                <p class="text-muted mb-0">SLA Breaches</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="content-card">
+                <div class="content-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Incident Trends</h5>
+                </div>
+                <div class="content-body">
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Chart Placeholder</h5>
+                        <p class="text-muted">Incident trends over time would be displayed here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="content-card">
+                <div class="content-header">
+                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Top Performers</h5>
+                </div>
+                <div class="content-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>John Engineer</strong>
+                                <small class="d-block text-muted">15 resolved this month</small>
+                            </div>
+                            <span class="badge bg-success">🥇</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Jane Developer</strong>
+                                <small class="d-block text-muted">12 resolved this month</small>
+                            </div>
+                            <span class="badge bg-warning">🥈</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Mike Support</strong>
+                                <small class="d-block text-muted">10 resolved this month</small>
+                            </div>
+                            <span class="badge bg-info">🥉</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

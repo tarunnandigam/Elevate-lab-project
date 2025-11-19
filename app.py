@@ -164,17 +164,43 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route('/dashboard', methods=['GET', 'POST'])
+@app.route('/dashboard')
 @login_required
 def dashboard():
-    incidents = Incident.query.order_by(Incident.created_at.desc()).all()
+    user = User.query.get(session['user_id'])
+    
+    # Filter incidents based on role permissions
+    if user.role == 'reporter':
+        incidents = Incident.query.filter_by(created_by=user.id, is_deleted=False).order_by(Incident.created_at.desc()).all()
+    elif user.role == 'engineer':
+        incidents = Incident.query.filter(
+            (Incident.assigned_to == user.id) | (Incident.created_by == user.id),
+            Incident.is_deleted == False
+        ).order_by(Incident.created_at.desc()).all()
+    else:  # admin, manager
+        incidents = Incident.query.filter_by(is_deleted=False).order_by(Incident.created_at.desc()).all()
+    
+    # Apply filters
+    status_filter = request.args.get('status')
+    priority_filter = request.args.get('priority')
+    assignee_filter = request.args.get('assignee')
+    
+    if status_filter:
+        incidents = [i for i in incidents if i.status == status_filter]
+    if priority_filter:
+        incidents = [i for i in incidents if i.priority == priority_filter]
+    if assignee_filter:
+        incidents = [i for i in incidents if str(i.assigned_to) == assignee_filter]
+    
     stats = {
         'total': len(incidents),
         'open': len([i for i in incidents if i.status == 'open']),
         'in_progress': len([i for i in incidents if i.status == 'in_progress']),
         'resolved': len([i for i in incidents if i.status == 'resolved'])
     }
-    return render_template('dashboard.html', incidents=incidents, stats=stats)
+    
+    users = User.query.filter_by(is_active=True).all()
+    return render_template('dashboard.html', incidents=incidents, stats=stats, users=users)
 
 @app.route('/incident/new', methods=['GET', 'POST'])
 @login_required
@@ -204,29 +230,168 @@ def view_incident(id):
     users = User.query.all()
     return render_template('incident_detail.html', incident=incident, users=users)
 
+# REST API Endpoints
+@app.route('/api/incidents', methods=['GET'])
+@login_required
+def api_get_incidents():
+    user = User.query.get(session['user_id'])
+    
+    if user.role == 'reporter':
+        incidents = Incident.query.filter_by(created_by=user.id, is_deleted=False).all()
+    elif user.role == 'engineer':
+        incidents = Incident.query.filter(
+            (Incident.assigned_to == user.id) | (Incident.created_by == user.id),
+            Incident.is_deleted == False
+        ).all()
+    else:
+        incidents = Incident.query.filter_by(is_deleted=False).all()
+    
+    return jsonify([{
+        'id': i.id,
+        'title': i.title,
+        'description': i.description,
+        'priority': i.priority,
+        'severity': i.severity,
+        'status': i.status,
+        'category': i.category,
+        'created_by': i.created_by,
+        'assigned_to': i.assigned_to,
+        'created_at': i.created_at.isoformat(),
+        'updated_at': i.updated_at.isoformat()
+    } for i in incidents])
+
+@app.route('/api/incidents', methods=['POST'])
+@login_required
+@permission_required('create')
+def api_create_incident():
+    data = request.get_json()
+    incident = Incident(
+        title=data['title'],
+        description=data['description'],
+        priority=data['priority'],
+        severity=data['severity'],
+        category=data['category'],
+        created_by=session['user_id']
+    )
+    db.session.add(incident)
+    db.session.commit()
+    logger.info(f'Incident #{incident.id} created via API by user {session["username"]}')
+    send_notification(incident, 'created')
+    return jsonify({'success': True, 'id': incident.id}), 201
+
+@app.route('/api/incidents/<int:id>', methods=['GET'])
+@login_required
+def api_get_incident(id):
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    user = User.query.get(session['user_id'])
+    
+    # Check permissions
+    if user.role == 'reporter' and incident.created_by != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    elif user.role == 'engineer' and incident.assigned_to != user.id and incident.created_by != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    return jsonify({
+        'id': incident.id,
+        'title': incident.title,
+        'description': incident.description,
+        'priority': incident.priority,
+        'severity': incident.severity,
+        'status': incident.status,
+        'category': incident.category,
+        'created_by': incident.created_by,
+        'assigned_to': incident.assigned_to,
+        'created_at': incident.created_at.isoformat(),
+        'updated_at': incident.updated_at.isoformat(),
+        'resolved_at': incident.resolved_at.isoformat() if incident.resolved_at else None
+    })
+
+@app.route('/api/incidents/<int:id>', methods=['PUT'])
+@login_required
+def api_update_incident(id):
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    user = User.query.get(session['user_id'])
+    data = request.get_json()
+    
+    # Check permissions
+    if user.role == 'reporter' and incident.created_by != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    elif user.role == 'engineer' and incident.assigned_to != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    # Update fields
+    if 'title' in data:
+        incident.title = data['title']
+    if 'description' in data:
+        incident.description = data['description']
+    if 'priority' in data and user.has_permission('update'):
+        incident.priority = data['priority']
+    if 'severity' in data and user.has_permission('update'):
+        incident.severity = data['severity']
+    if 'category' in data:
+        incident.category = data['category']
+    
+    db.session.commit()
+    logger.info(f'Incident #{incident.id} updated via API by user {session["username"]}')
+    return jsonify({'success': True})
+
+@app.route('/api/incidents/<int:id>', methods=['DELETE'])
+@login_required
+def api_delete_incident(id):
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    user = User.query.get(session['user_id'])
+    
+    # Only admin and managers can delete
+    if not user.has_permission('delete'):
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    # Soft delete
+    incident.is_deleted = True
+    db.session.commit()
+    logger.info(f'Incident #{incident.id} deleted via API by user {session["username"]}')
+    return jsonify({'success': True})
+
 @app.route('/api/incident/<int:id>/assign', methods=['POST'])
 @login_required
+@permission_required('assign')
 def assign_incident(id):
-    incident = Incident.query.get_or_404(id)
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
     data = request.get_json() or {}
     user_id = data.get('user_id')
+    
     incident.assigned_to = user_id
     if user_id:
         incident.status = 'in_progress'
+    else:
+        incident.status = 'open'
+    
     db.session.commit()
+    logger.info(f'Incident #{incident.id} assigned to user {user_id} by {session["username"]}')
     send_notification(incident, 'assigned')
     return jsonify({'success': True})
 
 @app.route('/api/incident/<int:id>/status', methods=['POST'])
 @login_required
 def update_status(id):
-    incident = Incident.query.get_or_404(id)
+    incident = Incident.query.filter_by(id=id, is_deleted=False).first_or_404()
+    user = User.query.get(session['user_id'])
     data = request.get_json() or {}
     status = data.get('status')
+    
+    # Check permissions for status updates
+    if user.role == 'engineer' and incident.assigned_to != user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    elif user.role == 'reporter':
+        return jsonify({'error': 'Permission denied'}), 403
+    
     incident.status = status
     if status == 'resolved':
         incident.resolved_at = datetime.utcnow()
+    elif status == 'closed' and not user.has_permission('close'):
+        return jsonify({'error': 'Permission denied'}), 403
+    
     db.session.commit()
+    logger.info(f'Incident #{incident.id} status updated to {status} by {session["username"]}')
     send_notification(incident, 'status_updated')
     return jsonify({'success': True})
 

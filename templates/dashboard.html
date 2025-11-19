@@ -49,13 +49,50 @@
         <div class="col-12">
             <div class="content-card fade-in-up" style="animation-delay: 0.4s">
                 <div class="content-header">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="mb-0">
-                            <i class="fas fa-list me-2"></i>Recent Incidents
+                            <i class="fas fa-list me-2"></i>Incidents Dashboard
                         </h4>
+                        {% if session.role in ['admin', 'manager', 'reporter'] %}
                         <a href="{{ url_for('new_incident') }}" class="btn btn-light btn-sm">
                             <i class="fas fa-plus me-1"></i>New Incident
                         </a>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="statusFilter" onchange="applyFilters()">
+                                <option value="">All Status</option>
+                                <option value="open">Open</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="priorityFilter" onchange="applyFilters()">
+                                <option value="">All Priority</option>
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="assigneeFilter" onchange="applyFilters()">
+                                <option value="">All Assignees</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="content-body">
@@ -67,9 +104,14 @@
                                     <div class="incident-header">
                                         <div class="d-flex justify-content-between align-items-start mb-2">
                                             <h6 class="fw-bold mb-0">#{{ incident.id }}</h6>
-                                            <span class="badge severity-{{ incident.severity }}">
-                                                {{ incident.severity.title() }}
-                                            </span>
+                                            <div>
+                                                <span class="badge severity-{{ incident.priority }} me-1">
+                                                    P: {{ incident.priority.title() }}
+                                                </span>
+                                                <span class="badge severity-{{ incident.severity }}">
+                                                    S: {{ incident.severity.title() }}
+                                                </span>
+                                            </div>
                                         </div>
                                         <h5 class="mb-2">{{ incident.title }}</h5>
                                         <div class="d-flex justify-content-between align-items-center">
@@ -114,4 +156,31 @@
         </div>
     </div>
 </div>
+
+<script>
+function applyFilters() {
+    const status = document.getElementById('statusFilter').value;
+    const priority = document.getElementById('priorityFilter').value;
+    const assignee = document.getElementById('assigneeFilter').value;
+    
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (priority) params.append('priority', priority);
+    if (assignee) params.append('assignee', assignee);
+    
+    window.location.href = '{{ url_for("dashboard") }}?' + params.toString();
+}
+
+function clearFilters() {
+    window.location.href = '{{ url_for("dashboard") }}';
+}
+
+// Set filter values from URL params
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('status')) document.getElementById('statusFilter').value = params.get('status');
+    if (params.get('priority')) document.getElementById('priorityFilter').value = params.get('priority');
+    if (params.get('assignee')) document.getElementById('assigneeFilter').value = params.get('assignee');
+});
+</script>
 {% endblock %}

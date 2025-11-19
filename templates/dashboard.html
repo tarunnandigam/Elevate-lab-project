@@ -243,7 +243,13 @@ function clearFilters() {
 
 function quickAssign(incidentId) {
     // Simple assignment to first available engineer
-    const engineers = {{ users|selectattr('role', 'equalto', 'engineer')|list|tojson }};
+    const engineers = [
+        {% for user in users %}
+        {% if user.role == 'engineer' %}
+        { id: {{ user.id }}, username: '{{ user.username }}' },
+        {% endif %}
+        {% endfor %}
+    ];
     if (engineers.length > 0) {
         fetch(`/api/incident/${incidentId}/assign`, {
             method: 'POST',

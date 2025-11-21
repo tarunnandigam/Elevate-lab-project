@@ -4,103 +4,202 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="content-card">
-                <div class="content-header">
-                    <h4 class="mb-0">
-                        <i class="fas fa-chart-bar me-2"></i>
-                        {% if session.role == 'admin' %}System Analytics{% else %}Team Performance{% endif %}
-                    </h4>
+    <div class="content-card fade-in-up">
+        <div class="content-header">
+            <h4 class="mb-0">
+                <i class="fas fa-chart-bar me-2"></i>System Reports & Analytics
+            </h4>
+            <p class="text-muted mb-0">Comprehensive incident management statistics</p>
+        </div>
+        <div class="content-body">
+            <!-- Summary Stats -->
+            <div class="row mb-4">
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-icon total">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                        <h3 class="fw-bold mb-1">{{ stats.total_incidents }}</h3>
+                        <p class="text-muted mb-0">Total Incidents</p>
+                    </div>
                 </div>
-                <div class="content-body">
-                    <div class="row">
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon total">
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
-                                <h3 class="fw-bold mb-1">{{ stats.resolution_rate }}%</h3>
-                                <p class="text-muted mb-0">Resolution Rate</p>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-icon open">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <h3 class="fw-bold mb-1">{{ stats.open_incidents }}</h3>
+                        <p class="text-muted mb-0">Open Issues</p>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-icon resolved">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h3 class="fw-bold mb-1">{{ stats.resolved_incidents }}</h3>
+                        <p class="text-muted mb-0">Resolved</p>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-icon critical">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <h3 class="fw-bold mb-1">{{ stats.critical_incidents }}</h3>
+                        <p class="text-muted mb-0">Critical Issues</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resolution Rate -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="metric-card">
+                        <h5>Resolution Rate</h5>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar bg-success" style="width: {{ stats.resolution_rate }}%">
+                                {{ stats.resolution_rate }}%
                             </div>
                         </div>
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon progress">
-                                    <i class="fas fa-clipboard-list"></i>
-                                </div>
-                                <h3 class="fw-bold mb-1">{{ stats.total_incidents }}</h3>
-                                <p class="text-muted mb-0">Total Incidents</p>
-                            </div>
+                        <small class="text-muted">{{ stats.resolved_incidents }} of {{ stats.total_incidents }} incidents resolved</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="metric-card">
+                        <h5>System Health</h5>
+                        <div class="d-flex justify-content-between">
+                            <span>Open Issues:</span>
+                            <span class="badge bg-warning">{{ stats.open_incidents }}</span>
                         </div>
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon resolved">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <h3 class="fw-bold mb-1">{{ stats.resolved_incidents }}</h3>
-                                <p class="text-muted mb-0">Resolved</p>
-                            </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Critical Issues:</span>
+                            <span class="badge bg-danger">{{ stats.critical_incidents }}</span>
                         </div>
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon open">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <h3 class="fw-bold mb-1">{{ stats.critical_incidents }}</h3>
-                                <p class="text-muted mb-0">Critical Issues</p>
-                            </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Resolution Rate:</span>
+                            <span class="badge bg-success">{{ stats.resolution_rate }}%</span>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <div class="row">
-        <div class="col-lg-8">
-            <div class="content-card">
-                <div class="content-header">
-                    <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Incident Trends</h5>
-                </div>
-                <div class="content-body">
-                    <div class="text-center py-5">
-                        <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">Chart Placeholder</h5>
-                        <p class="text-muted">Incident trends over time would be displayed here</p>
+
+            <!-- Engineer Performance -->
+            <div class="row">
+                <div class="col-12">
+                    <h5 class="mb-3">
+                        <i class="fas fa-users me-2"></i>Engineer Performance
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Engineer</th>
+                                    <th>Specialization</th>
+                                    <th>Resolved</th>
+                                    <th>In Progress</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for engineer in stats.engineer_stats %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ engineer.name }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ engineer.specialization }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ engineer.resolved }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-warning">{{ engineer.in_progress }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 15px; width: 100px;">
+                                            {% set total = engineer.resolved + engineer.in_progress %}
+                                            {% set percentage = (engineer.resolved / total * 100) if total > 0 else 0 %}
+                                            <div class="progress-bar bg-success" style="width: {{ percentage }}%"></div>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ "%.1f"|format((engineer.resolved / (engineer.resolved + engineer.in_progress) * 100) if (engineer.resolved + engineer.in_progress) > 0 else 0) }}%
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not stats.engineer_stats %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">No engineer data available</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="col-lg-4">
-            <div class="content-card">
-                <div class="content-header">
-                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Top Performers</h5>
-                </div>
-                <div class="content-body">
-                    <div class="list-group list-group-flush">
-                        {% for engineer in stats.engineer_stats[:3] %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>{{ engineer.name }}</strong>
-                                <small class="d-block text-muted">{{ engineer.specialization }} - {{ engineer.resolved }} resolved, {{ engineer.in_progress }} in progress</small>
-                            </div>
-                            <span class="badge {% if loop.index == 1 %}bg-success{% elif loop.index == 2 %}bg-warning{% else %}bg-info{% endif %}">
-                                {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% else %}🥉{% endif %}
-                            </span>
-                        </div>
-                        {% endfor %}
-                        {% if stats.engineer_stats|length == 0 %}
-                        <div class="list-group-item text-center text-muted">
-                            <i class="fas fa-users fa-2x mb-2"></i>
-                            <p>No engineer data available</p>
-                        </div>
-                        {% endif %}
+
+            <!-- Export Options -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                            <i class="fas fa-file-pdf me-1"></i>Export PDF
+                        </button>
+                        <button class="btn btn-outline-success" onclick="exportReport('excel')">
+                            <i class="fas fa-file-excel me-1"></i>Export Excel
+                        </button>
+                        <button class="btn btn-outline-info" onclick="printReport()">
+                            <i class="fas fa-print me-1"></i>Print Report
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function exportReport(format) {
+    // Placeholder for export functionality
+    alert(`Export to ${format.toUpperCase()} functionality would be implemented here`);
+}
+
+function printReport() {
+    window.print();
+}
+</script>
+
+<style>
+.metric-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.stats-card .stats-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.stats-card h3 {
+    font-size: 2.5rem;
+    margin: 0;
+}
+
+@media print {
+    .btn, .navbar, .sidebar {
+        display: none !important;
+    }
+}
+</style>
 {% endblock %}

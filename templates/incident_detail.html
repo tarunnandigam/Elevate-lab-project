@@ -1,482 +1,701 @@
 {% extends "base.html" %}
 
-{% block title %}Incident #{{ incident.id }} - Incident Management{% endblock %}
+{% block title %}{{ incident.title }} - #{{ incident.id }}{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-lg-8">
-            <div class="content-card fade-in-up">
-                <div class="content-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h4 class="mb-1">
-                                <i class="fas fa-bug me-2"></i>Incident #{{ incident.id }}
-                            </h4>
-                            <p class="mb-0 opacity-75">{{ incident.title }}</p>
+<div class="container-fluid p-0">
+    <!-- Header Section -->
+    <div class="incident-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="header-content">
+                        <div class="incident-meta">
+                            <span class="incident-id">INC-{{ incident.id }}</span>
+                            <span class="badge severity-{{ incident.severity }}">{{ incident.severity.upper() }}</span>
+                            <span class="badge status-{{ incident.status }}">{{ incident.status.replace('_', ' ').upper() }}</span>
+                            <span class="badge priority-{{ incident.priority }}">P{{ {'low': '4', 'medium': '3', 'high': '2', 'critical': '1'}[incident.priority] }}</span>
                         </div>
-                        <span class="badge severity-{{ incident.severity }} fs-6">
-                            {{ incident.severity.title() }}
-                        </span>
+                        <h1 class="incident-title">{{ incident.title }}</h1>
+                        <div class="incident-info">
+                            <span><i class="fas fa-user"></i> {{ incident.creator.username }}</span>
+                            <span><i class="fas fa-calendar"></i> {{ incident.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+                            <span><i class="fas fa-tag"></i> {{ incident.category.title() }}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="content-body">
-                    <div class="mb-4">
-                        <h6 class="fw-bold mb-2">Description</h6>
-                        <p class="text-muted">{{ incident.description }}</p>
+                <div class="col-md-4 text-end">
+                    <div class="header-actions">
+                        <a href="/dashboard" class="btn btn-outline-light btn-sm">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </a>
+                        {% if session.role == 'admin' %}
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteIncident({{ incident.id }})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="incident-body">
+        <div class="container-fluid">
+            <div class="row g-3">
+                <!-- Left Column -->
+                <div class="col-lg-8">
+                    <!-- Description Section -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h5><i class="fas fa-file-text"></i> Description</h5>
+                        </div>
+                        <div class="section-content">
+                            <div class="description-text">{{ incident.description | replace('\n', '<br>') | safe }}</div>
+                        </div>
                     </div>
 
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="fw-bold mb-2">Details</h6>
-                            <ul class="list-unstyled">
-                                <li class="mb-2">
-                                    <i class="fas fa-tag me-2 text-primary"></i>
-                                    <strong>Category:</strong> {{ incident.category.title() }}
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-calendar me-2 text-primary"></i>
-                                    <strong>Created:</strong> {{ incident.created_at.strftime('%B %d, %Y at %I:%M %p') }}
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-clock me-2 text-primary"></i>
-                                    <strong>Last Updated:</strong> {{ incident.updated_at.strftime('%B %d, %Y at %I:%M %p') }}
-                                </li>
-                                {% if incident.resolved_at %}
-                                <li class="mb-2">
-                                    <i class="fas fa-check-circle me-2 text-success"></i>
-                                    <strong>Resolved:</strong> {{ incident.resolved_at.strftime('%B %d, %Y at %I:%M %p') }}
-                                </li>
-                                {% endif %}
-                            </ul>
+                    <!-- Basic Details Section -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h5><i class="fas fa-info-circle"></i> Basic Details</h5>
                         </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-bold mb-2">
-                                {% if session.role == 'admin' %}System Control
-                                {% elif session.role == 'manager' %}Management
-                                {% elif session.role == 'engineer' %}Work Progress
-                                {% else %}Status{% endif %}
-                            </h6>
-                            
-                            {% if session.role in ['admin', 'manager'] %}
-                            <div class="mb-3">
-                                <label class="form-label">Assign Engineer:</label>
-                                <select class="form-select" id="assignSelect">
-                                    <option value="">Unassigned</option>
-                                    {% for user in users %}
-                                    {% if user.role == 'engineer' %}
-                                    <option value="{{ user.id }}" {% if incident.assigned_to == user.id %}selected{% endif %}>
-                                        {{ user.username }} {% if user.specialization %}({{ user.specialization.title() }}){% endif %}
-                                    </option>
-                                    {% endif %}
-                                    {% endfor %}
-                                </select>
+                        <div class="section-content">
+                            <div class="details-grid">
+                                <div class="detail-item">
+                                    <label>Category</label>
+                                    <span class="badge bg-secondary">{{ incident.category.title() }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Priority</label>
+                                    <span class="badge priority-{{ incident.priority }}">{{ incident.priority.title() }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Severity</label>
+                                    <span class="badge severity-{{ incident.severity }}">{{ incident.severity.title() }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Impact Area</label>
+                                    <span>{{ incident.category.title() }} System</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attachments Section -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h5><i class="fas fa-paperclip"></i> Attachments <span class="badge bg-primary">{{ attachments|length }}</span></h5>
+                            {% if session.role in ['admin', 'manager'] or incident.created_by == session.user_id or incident.assigned_to == session.user_id %}
+                            <button class="btn btn-sm btn-primary" onclick="document.getElementById('fileInput').click()">
+                                <i class="fas fa-upload"></i> Upload
+                            </button>
+                            <input type="file" id="fileInput" multiple style="display: none" onchange="uploadFiles({{ incident.id }})">
+                            {% endif %}
+                        </div>
+                        <div class="section-content">
+                            {% if attachments %}
+                            <div class="attachments-grid">
+                                {% for attachment in attachments %}
+                                <div class="attachment-card">
+                                    <div class="attachment-icon">
+                                        <i class="fas fa-file"></i>
+                                    </div>
+                                    <div class="attachment-info">
+                                        <div class="attachment-name">{{ attachment.filename }}</div>
+                                        <div class="attachment-meta">{{ attachment.uploader.username }} • {{ attachment.uploaded_at.strftime('%m/%d/%Y') }}</div>
+                                    </div>
+                                    <div class="attachment-actions">
+                                        <a href="/attachment/{{ attachment.id }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="empty-state">
+                                <i class="fas fa-paperclip fa-2x"></i>
+                                <p>No attachments yet</p>
                             </div>
                             {% endif %}
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Status:</label>
-                                {% if session.role == 'engineer' %}
-                                <select class="form-select" id="statusSelect">
-                                    <option value="in_progress" {% if incident.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                                    <option value="resolved" {% if incident.status == 'resolved' %}selected{% endif %}>Resolved</option>
-                                </select>
-                                {% elif session.role in ['admin', 'manager'] %}
-                                <select class="form-select" id="statusSelect">
+                        </div>
+                    </div>
+
+                    <!-- Activity Timeline -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h5><i class="fas fa-history"></i> Activity Timeline</h5>
+                        </div>
+                        <div class="section-content">
+                            <div class="timeline">
+                                <!-- Creation Event -->
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-primary">
+                                        <i class="fas fa-plus"></i>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-header">
+                                            <strong>{{ incident.creator.username }}</strong> created this incident
+                                            <span class="timeline-time">{{ incident.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Assignment Event -->
+                                {% if incident.assignee %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-info">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-header">
+                                            Assigned to <strong>{{ incident.assignee.username }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Work Logs & Comments -->
+                                {% set all_activities = [] %}
+                                {% for comment in comments %}
+                                    {% set _ = all_activities.append(('comment', comment, comment.created_at)) %}
+                                {% endfor %}
+                                {% for log in work_logs %}
+                                    {% set _ = all_activities.append(('work_log', log, log.logged_at)) %}
+                                {% endfor %}
+                                {% set sorted_activities = all_activities | sort(attribute=2) %}
+
+                                {% for activity_type, activity, timestamp in sorted_activities %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker {% if activity_type == 'comment' %}bg-warning{% else %}bg-success{% endif %}">
+                                        <i class="fas {% if activity_type == 'comment' %}fa-comment{% else %}fa-clock{% endif %}"></i>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-header">
+                                            <strong>{{ activity.user.username }}</strong> 
+                                            {% if activity_type == 'comment' %}commented{% else %}logged work{% endif %}
+                                            {% if activity_type == 'work_log' and activity.time_spent %}
+                                                <span class="badge bg-success">{{ activity.time_spent }}h</span>
+                                            {% endif %}
+                                            <span class="timeline-time">{{ timestamp.strftime('%b %d, %Y %I:%M %p') }}</span>
+                                        </div>
+                                        <div class="timeline-body">
+                                            {% if activity_type == 'comment' %}
+                                                {{ activity.content | replace('\n', '<br>') | safe }}
+                                            {% else %}
+                                                {{ activity.description }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+
+                                <!-- Resolution Event -->
+                                {% if incident.resolved_at %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-success">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-header">
+                                            Incident resolved
+                                            <span class="timeline-time">{{ incident.resolved_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Add Comment -->
+                            <div class="add-comment">
+                                <form onsubmit="addComment(event, {{ incident.id }})">
+                                    <textarea class="form-control" id="commentContent" rows="3" placeholder="Add a comment..."></textarea>
+                                    <div class="comment-actions">
+                                        <button type="submit" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-paper-plane"></i> Post Comment
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div class="col-lg-4">
+                    <!-- Assignment Section -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h6><i class="fas fa-users"></i> Assignment</h6>
+                        </div>
+                        <div class="section-content">
+                            <div class="assignment-item">
+                                <label>Reported By</label>
+                                <div class="user-info">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span>{{ incident.creator.username }}</span>
+                                    <small>{{ incident.creator.role.title() }}</small>
+                                </div>
+                            </div>
+                            <div class="assignment-item">
+                                <label>Assigned To</label>
+                                {% if session.role in ['admin', 'manager'] or incident.created_by == session.user_id %}
+                                <div class="assign-controls">
+                                    <select class="form-select form-select-sm" id="assigneeSelect">
+                                        <option value="">Select Engineer...</option>
+                                        {% for user in users %}
+                                            {% if user.role == 'engineer' %}
+                                            <option value="{{ user.id }}" {% if incident.assigned_to == user.id %}selected{% endif %}>
+                                                {{ user.username }}{% if user.specialization %} ({{ user.specialization.title() }}){% endif %}
+                                            </option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    <button class="btn btn-primary btn-sm" onclick="assignIncident({{ incident.id }})">
+                                        <i class="fas fa-check"></i> Assign
+                                    </button>
+                                </div>
+                                {% else %}
+                                <div class="user-info">
+                                    {% if incident.assignee %}
+                                    <i class="fas fa-user-circle text-primary"></i>
+                                    <span>{{ incident.assignee.username }}</span>
+                                    <small>{{ incident.assignee.specialization or incident.assignee.role.title() }}</small>
+                                    {% else %}
+                                    <i class="fas fa-user-slash text-muted"></i>
+                                    <span class="text-muted">Unassigned</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="assignment-item">
+                                <label>Team</label>
+                                <span class="badge bg-info">
+                                    {% if incident.assignee and incident.assignee.specialization %}
+                                        {{ incident.assignee.specialization.title() }}
+                                    {% else %}
+                                        General
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Update Section -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h6><i class="fas fa-flag"></i> Status Update</h6>
+                        </div>
+                        <div class="section-content">
+                            {% if session.role in ['admin', 'manager'] or (session.role == 'engineer' and incident.assigned_to == session.user_id) %}
+                            <div class="status-controls">
+                                <select class="form-select form-select-sm" id="statusSelect">
                                     <option value="open" {% if incident.status == 'open' %}selected{% endif %}>Open</option>
                                     <option value="in_progress" {% if incident.status == 'in_progress' %}selected{% endif %}>In Progress</option>
                                     <option value="resolved" {% if incident.status == 'resolved' %}selected{% endif %}>Resolved</option>
+                                    {% if session.role in ['admin', 'manager'] %}
                                     <option value="closed" {% if incident.status == 'closed' %}selected{% endif %}>Closed</option>
+                                    {% endif %}
                                 </select>
-                                {% else %}
-                                <input type="text" class="form-control" value="{{ incident.status.replace('_', ' ').title() }}" readonly>
-                                {% endif %}
+                                <button class="btn btn-success btn-sm" onclick="updateStatus({{ incident.id }})">
+                                    <i class="fas fa-sync"></i> Update
+                                </button>
                             </div>
-                            
-                            {% if session.role == 'engineer' and incident.assigned_to == session.user_id %}
-                            <div class="mb-3">
-                                <label class="form-label">Time Spent (hours):</label>
-                                <input type="number" class="form-control" id="timeSpent" placeholder="0" step="0.5">
+                            {% else %}
+                            <div class="current-status">
+                                <span class="badge status-{{ incident.status }} fs-6">{{ incident.status.replace('_', ' ').title() }}</span>
                             </div>
                             {% endif %}
                         </div>
                     </div>
 
-                    <!-- Comments Section -->
-                    <div class="mb-4">
-                        <h6 class="fw-bold mb-3">
-                            <i class="fas fa-comments me-2"></i>Timeline & Comments
-                        </h6>
-                        
-                        <!-- Timeline -->
-                        <div class="timeline mb-4">
-                            <div class="timeline-item">
-                                <div class="timeline-marker bg-primary"></div>
-                                <div class="timeline-content">
-                                    <small class="text-muted">{{ incident.created_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
-                                    <p class="mb-0"><strong>{{ incident.creator.username }}</strong> created this incident</p>
+                    <!-- Work Log Section -->
+                    {% if session.role == 'engineer' and incident.assigned_to == session.user_id %}
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h6><i class="fas fa-stopwatch"></i> Log Work</h6>
+                        </div>
+                        <div class="section-content">
+                            <form onsubmit="logWork(event, {{ incident.id }})">
+                                <textarea class="form-control form-control-sm mb-2" id="workDescription" rows="2" placeholder="Work description..." required></textarea>
+                                <div class="input-group input-group-sm mb-2">
+                                    <input type="number" class="form-control" id="timeSpent" step="0.25" min="0" placeholder="0.0">
+                                    <span class="input-group-text">hours</span>
                                 </div>
+                                <button type="submit" class="btn btn-success btn-sm w-100">
+                                    <i class="fas fa-plus"></i> Log Work
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Time Tracking -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h6><i class="fas fa-clock"></i> Time Tracking</h6>
+                        </div>
+                        <div class="section-content">
+                            <div class="time-item">
+                                <label>Created On</label>
+                                <span>{{ incident.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
                             </div>
-                            
-                            {% if incident.assigned_to %}
-                            <div class="timeline-item">
-                                <div class="timeline-marker bg-warning"></div>
-                                <div class="timeline-content">
-                                    <small class="text-muted">{{ incident.updated_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
-                                    <p class="mb-0">Assigned to <strong>{{ incident.assignee.username }}</strong></p>
-                                </div>
+                            <div class="time-item">
+                                <label>Updated On</label>
+                                <span>{{ incident.updated_at.strftime('%b %d, %Y %I:%M %p') }}</span>
                             </div>
-                            {% endif %}
-                            
+                            <div class="time-item">
+                                <label>Time Spent</label>
+                                <span class="badge bg-primary">{{ work_logs|sum(attribute='time_spent') or 0 }}h</span>
+                            </div>
                             {% if incident.resolved_at %}
-                            <div class="timeline-item">
-                                <div class="timeline-marker bg-success"></div>
-                                <div class="timeline-content">
-                                    <small class="text-muted">{{ incident.resolved_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
-                                    <p class="mb-0">Incident marked as resolved</p>
-                                </div>
+                            <div class="time-item">
+                                <label>Resolved On</label>
+                                <span class="text-success">{{ incident.resolved_at.strftime('%b %d, %Y %I:%M %p') }}</span>
                             </div>
                             {% endif %}
-                            
-                            {% for comment in comments %}
-                            <div class="timeline-item">
-                                <div class="timeline-marker bg-info"></div>
-                                <div class="timeline-content">
-                                    <small class="text-muted">{{ comment.created_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
-                                    <p class="mb-1"><strong>{{ comment.user.username }}</strong> commented:</p>
-                                    <div class="comment-content">{{ comment.content }}</div>
-                                </div>
-                            </div>
-                            {% endfor %}
                         </div>
-                        
-                        <!-- Role-specific Comment Form -->
-                        {% if session.role != 'reporter' or incident.created_by == session.user_id %}
-                        <form method="POST" action="{{ url_for('add_comment', id=incident.id) }}" class="mt-3">
-                            <div class="mb-3">
-                                <textarea class="form-control" name="content" rows="3" 
-                                    placeholder="{% if session.role == 'engineer' %}Add progress update or resolution notes...
-                                    {% elif session.role == 'manager' %}Add management notes or instructions...
-                                    {% elif session.role == 'admin' %}Add administrative notes...
-                                    {% else %}Add additional information...{% endif %}" required></textarea>
+                    </div>
+
+                    <!-- Admin Controls -->
+                    {% if session.role in ['admin', 'manager'] %}
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h6><i class="fas fa-cog"></i> Admin Controls</h6>
+                        </div>
+                        <div class="section-content">
+                            <div class="admin-controls">
+                                <select class="form-select form-select-sm mb-2" id="prioritySelect">
+                                    <option value="low" {% if incident.priority == 'low' %}selected{% endif %}>Low Priority</option>
+                                    <option value="medium" {% if incident.priority == 'medium' %}selected{% endif %}>Medium Priority</option>
+                                    <option value="high" {% if incident.priority == 'high' %}selected{% endif %}>High Priority</option>
+                                    <option value="critical" {% if incident.priority == 'critical' %}selected{% endif %}>Critical Priority</option>
+                                </select>
+                                <button class="btn btn-warning btn-sm w-100 mb-2" onclick="updatePriority({{ incident.id }})">
+                                    <i class="fas fa-exclamation-triangle"></i> Update Priority
+                                </button>
+                                <button class="btn btn-info btn-sm w-100" onclick="sendNotification({{ incident.id }})">
+                                    <i class="fas fa-bell"></i> Notify Assignee
+                                </button>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <button type="submit" class="btn btn-primary btn-sm">
-                                        <i class="fas fa-comment me-1"></i>
-                                        {% if session.role == 'engineer' %}Update Progress
-                                        {% elif session.role == 'manager' %}Add Note
-                                        {% elif session.role == 'admin' %}Add Admin Note
-                                        {% else %}Add Comment{% endif %}
-                                    </button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Statistics -->
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h6><i class="fas fa-chart-bar"></i> Statistics</h6>
+                        </div>
+                        <div class="section-content">
+                            <div class="stats-grid">
+                                <div class="stat-box">
+                                    <div class="stat-number">{{ comments|length }}</div>
+                                    <div class="stat-label">Comments</div>
                                 </div>
-                                <div>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                        <i class="fas fa-paperclip me-1"></i>Attach File
-                                    </button>
+                                <div class="stat-box">
+                                    <div class="stat-number">{{ work_logs|length }}</div>
+                                    <div class="stat-label">Work Logs</div>
                                 </div>
-                            </div>
-                        </form>
-                        {% endif %}
-                        
-                        <!-- Work Log Section for Engineers -->
-                        {% if session.role == 'engineer' and incident.assigned_to == session.user_id %}
-                        <div class="mt-4">
-                            <h6 class="fw-bold mb-3">
-                                <i class="fas fa-clock me-2"></i>Work Logs
-                            </h6>
-                            {% for log in work_logs %}
-                            <div class="card mb-2">
-                                <div class="card-body py-2">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <small class="text-muted">{{ log.logged_at.strftime('%m/%d/%Y %H:%M') }}</small>
-                                            <p class="mb-1">{{ log.description }}</p>
-                                        </div>
-                                        <span class="badge bg-info">{{ log.time_spent }}h</span>
+                                <div class="stat-box">
+                                    <div class="stat-number">{{ attachments|length }}</div>
+                                    <div class="stat-label">Files</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-number">
+                                        {% set days_open = (incident.resolved_at or incident.updated_at) - incident.created_at %}
+                                        {{ days_open.days }}
                                     </div>
+                                    <div class="stat-label">Days</div>
                                 </div>
                             </div>
-                            {% endfor %}
-                            
-                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workLogModal">
-                                <i class="fas fa-plus me-1"></i>Add Work Log
-                            </button>
                         </div>
-                        {% endif %}
-                        
-                        <!-- Attachments Section -->
-                        {% if attachments %}
-                        <div class="mt-4">
-                            <h6 class="fw-bold mb-3">
-                                <i class="fas fa-paperclip me-2"></i>Attachments
-                            </h6>
-                            {% for attachment in attachments %}
-                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                                <div>
-                                    <i class="fas fa-file me-2"></i>
-                                    <strong>{{ attachment.filename }}</strong>
-                                    <small class="text-muted ms-2">by {{ attachment.uploader.username }} on {{ attachment.uploaded_at.strftime('%m/%d/%Y') }}</small>
-                                </div>
-                                <a href="{{ url_for('download_attachment', attachment_id=attachment.id) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-download"></i>
-                                </a>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
-                        </a>
-                        <div>
-                            {% if session.role == 'admin' %}
-                            <button class="btn btn-danger me-2" onclick="deleteIncident()">
-                                <i class="fas fa-trash me-1"></i>Delete
-                            </button>
-                            <button class="btn btn-success me-2" onclick="updateAssignment()">
-                                <i class="fas fa-user-check me-1"></i>Reassign
-                            </button>
-                            <button class="btn btn-primary" onclick="updateStatus()">
-                                <i class="fas fa-cog me-1"></i>Control Status
-                            </button>
-                            {% elif session.role == 'manager' %}
-                            <button class="btn btn-success me-2" onclick="updateAssignment()">
-                                <i class="fas fa-user-check me-1"></i>Assign Engineer
-                            </button>
-                            <button class="btn btn-primary" onclick="updateStatus()">
-                                <i class="fas fa-tasks me-1"></i>Manage Status
-                            </button>
-                            {% elif session.role == 'engineer' and incident.assigned_to == session.user_id %}
-                            <button class="btn btn-warning me-2" onclick="quickStatusUpdate('in_progress')" {% if incident.status == 'in_progress' %}style="display:none"{% endif %}>
-                                <i class="fas fa-play me-1"></i>Start Work
-                            </button>
-                            <button class="btn btn-success" onclick="quickStatusUpdate('resolved')" {% if incident.status != 'in_progress' %}style="display:none"{% endif %}>
-                                <i class="fas fa-check me-1"></i>Mark Resolved
-                            </button>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <!-- Status Card -->
-            <div class="content-card fade-in-up" style="animation-delay: 0.1s">
-                <div class="content-body">
-                    <h6 class="fw-bold mb-3">
-                        <i class="fas fa-info-circle me-2"></i>Current Status
-                    </h6>
-                    <div class="text-center">
-                        <div class="mb-3">
-                            <span class="badge status-{{ incident.status }} fs-6 px-3 py-2">
-                                {{ incident.status.replace('_', ' ').title() }}
-                            </span>
-                        </div>
-                        {% if incident.status == 'open' %}
-                        <p class="text-muted small">This incident is waiting to be assigned and worked on.</p>
-                        {% elif incident.status == 'in_progress' %}
-                        <p class="text-muted small">This incident is currently being investigated and resolved.</p>
-                        {% elif incident.status == 'resolved' %}
-                        <p class="text-muted small">This incident has been resolved and is awaiting verification.</p>
-                        {% elif incident.status == 'closed' %}
-                        <p class="text-muted small">This incident has been closed and is considered complete.</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="content-card mt-3 fade-in-up" style="animation-delay: 0.2s">
-                <div class="content-body">
-                    <h6 class="fw-bold mb-3">
-                        <i class="fas fa-bolt me-2"></i>Quick Actions
-                    </h6>
-                    <div class="d-grid gap-2">
-                        {% if incident.status == 'open' %}
-                        <button class="btn btn-warning btn-sm" onclick="quickStatusUpdate('in_progress')">
-                            <i class="fas fa-play me-1"></i>Start Working
-                        </button>
-                        {% endif %}
-                        {% if incident.status == 'in_progress' %}
-                        <button class="btn btn-success btn-sm" onclick="quickStatusUpdate('resolved')">
-                            <i class="fas fa-check me-1"></i>Mark Resolved
-                        </button>
-                        {% endif %}
-                        {% if incident.status == 'resolved' %}
-                        <button class="btn btn-secondary btn-sm" onclick="quickStatusUpdate('closed')">
-                            <i class="fas fa-archive me-1"></i>Close Incident
-                        </button>
-                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- Update Incident Button -->
+    <div class="container-fluid mt-3 mb-4">
+        <div class="text-center">
+            {% if session.role in ['admin', 'manager'] or incident.created_by == session.user_id %}
+            <button class="btn btn-success btn-lg" onclick="updateIncident({{ incident.id }})">
+                <i class="fas fa-save"></i> Update Incident
+            </button>
+            {% endif %}
+        </div>
+    </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+.incident-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem 0;
+    margin-bottom: 0;
+}
+
+.incident-meta { margin-bottom: 0.5rem; }
+.incident-meta .badge { margin-right: 0.5rem; padding: 0.3rem 0.6rem; }
+.incident-id { background: rgba(255,255,255,0.2); padding: 0.3rem 0.8rem; border-radius: 15px; font-weight: bold; }
+
+.incident-title { font-size: 1.8rem; font-weight: 700; margin: 0.5rem 0; }
+.incident-info span { margin-right: 1rem; opacity: 0.9; }
+
+.incident-body { padding: 1rem 0; background: #f8f9fa; min-height: calc(100vh - 200px); }
+
+.section-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+    border: 1px solid #e9ecef;
+}
+
+.section-header {
+    background: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-header h5, .section-header h6 { margin: 0; font-weight: 600; }
+
+.section-content { padding: 1rem; }
+
+.description-text { font-size: 1rem; line-height: 1.6; color: #495057; }
+
+.details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.detail-item { display: flex; justify-content: space-between; align-items: center; }
+.detail-item label { font-weight: 600; color: #495057; }
+
+.attachments-grid { display: grid; gap: 0.5rem; }
+.attachment-card {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #e9ecef;
+}
+.attachment-icon { width: 30px; text-align: center; color: #6c757d; }
+.attachment-info { flex: 1; margin-left: 0.5rem; }
+.attachment-name { font-weight: 500; font-size: 0.9rem; }
+.attachment-meta { font-size: 0.75rem; color: #6c757d; }
+
+.timeline { max-height: 400px; overflow-y: auto; }
+.timeline-item { display: flex; margin-bottom: 1rem; }
+.timeline-marker {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+}
+.timeline-content { flex: 1; }
+.timeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
+.timeline-time { font-size: 0.75rem; color: #6c757d; }
+.timeline-body { color: #495057; font-size: 0.9rem; }
+
+.add-comment { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e9ecef; }
+.comment-actions { margin-top: 0.5rem; text-align: right; }
+
+.assignment-item, .time-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.assignment-item:last-child, .time-item:last-child { margin-bottom: 0; }
+.assignment-item label, .time-item label { font-weight: 600; color: #495057; }
+
+.user-info { display: flex; align-items: center; gap: 0.5rem; }
+.user-info small { color: #6c757d; }
+
+.assign-controls, .status-controls { display: flex; gap: 0.5rem; }
+.assign-controls select, .status-controls select { flex: 1; }
+
+.admin-controls .btn { margin-bottom: 0.5rem; }
+.admin-controls .btn:last-child { margin-bottom: 0; }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.stat-box { text-align: center; padding: 0.75rem; background: #f8f9fa; border-radius: 5px; }
+.stat-number { font-size: 1.25rem; font-weight: bold; color: #495057; }
+.stat-label { font-size: 0.75rem; color: #6c757d; }
+
+.empty-state { text-align: center; padding: 2rem; color: #6c757d; }
+
+/* Status & Priority Badges */
+.status-open { background: #6c757d; }
+.status-in_progress { background: #ffc107; color: #000; }
+.status-resolved { background: #28a745; }
+.status-closed { background: #17a2b8; }
+
+.priority-low, .severity-low { background: #28a745; }
+.priority-medium, .severity-medium { background: #ffc107; color: #000; }
+.priority-high, .severity-high { background: #fd7e14; }
+.priority-critical, .severity-critical { background: #dc3545; }
+
+@media (max-width: 768px) {
+    .incident-title { font-size: 1.4rem; }
+    .details-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .assign-controls, .status-controls { flex-direction: column; }
+}
+</style>
+
 <script>
-function updateAssignment() {
-    const userId = document.getElementById('assignSelect').value;
-    fetch(`/api/incident/{{ incident.id }}/assign`, {
+function assignIncident(incidentId) {
+    const userId = document.getElementById('assigneeSelect').value;
+    if (!userId) return alert('Please select an engineer');
+    
+    fetch(`/api/incident/${incidentId}/assign`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_id: userId || null })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: parseInt(userId) })
     })
     .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    });
+    .then(data => data.success ? location.reload() : alert('Error assigning incident'));
 }
 
-function updateStatus() {
+function updateStatus(incidentId) {
     const status = document.getElementById('statusSelect').value;
-    fetch(`/api/incident/{{ incident.id }}/status`, {
+    
+    fetch(`/api/incident/${incidentId}/status`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: status })
     })
     .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    });
+    .then(data => data.success ? location.reload() : alert('Error updating status'));
 }
 
-function quickStatusUpdate(status) {
-    fetch(`/api/incident/{{ incident.id }}/status`, {
+function updatePriority(incidentId) {
+    const priority = document.getElementById('prioritySelect').value;
+    
+    fetch(`/api/incident/${incidentId}/priority`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: status })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: priority })
     })
     .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    });
+    .then(data => data.success ? location.reload() : alert('Error updating priority'));
 }
 
-function deleteIncident() {
-    if (confirm('Are you sure you want to delete this incident?')) {
-        fetch(`/api/incidents/{{ incident.id }}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-            }
+function addComment(event, incidentId) {
+    event.preventDefault();
+    const content = document.getElementById('commentContent').value.trim();
+    if (!content) return;
+    
+    fetch(`/incident/${incidentId}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `content=${encodeURIComponent(content)}`
+    })
+    .then(response => response.ok ? location.reload() : alert('Error adding comment'));
+}
+
+function logWork(event, incidentId) {
+    event.preventDefault();
+    const description = document.getElementById('workDescription').value.trim();
+    const timeSpent = document.getElementById('timeSpent').value;
+    if (!description) return;
+    
+    fetch(`/incident/${incidentId}/work_log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: description, time_spent: parseFloat(timeSpent) || 0 })
+    })
+    .then(response => response.json())
+    .then(data => data.success ? location.reload() : alert('Error logging work'));
+}
+
+function uploadFiles(incidentId) {
+    const files = document.getElementById('fileInput').files;
+    if (!files.length) return;
+    
+    Array.from(files).forEach(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        fetch(`/incident/${incidentId}/upload`, {
+            method: 'POST',
+            body: formData
         })
         .then(response => response.json())
+        .then(data => data.success ? location.reload() : alert('Error uploading file'));
+    });
+}
+
+
+
+function sendNotification(incidentId) {
+    alert('Notification sent to assignee');
+}
+
+function updateIncident(incidentId) {
+    const updateData = {
+        assigned_to: document.getElementById('assigneeSelect').value || null,
+        status: document.getElementById('statusSelect').value,
+        priority: document.getElementById('prioritySelect').value
+    };
+    
+    fetch(`/api/incident/${incidentId}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('Incident updated successfully! Email notification sent.');
+            window.location.href = '/dashboard';
+        } else {
+            alert(data.error || 'Error updating incident');
+        }
+    })
+    .catch(error => {
+        console.error('Update error:', error);
+        alert('Error updating incident: ' + error.message);
+    });
+}
+
+function deleteIncident(incidentId) {
+    if (confirm('Are you sure you want to delete this incident? This action cannot be undone.')) {
+        fetch(`/api/incidents/${incidentId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
+                alert('Incident deleted successfully');
                 window.location.href = '/dashboard';
+            } else {
+                alert(data.error || 'Error deleting incident');
             }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            alert('Error deleting incident: ' + error.message);
         });
     }
 }
-
-function addWorkLog() {
-    const description = document.getElementById('workLogDescription').value;
-    const timeSpent = document.getElementById('workLogTime').value;
-    
-    if (!description) return;
-    
-    fetch(`/incident/{{ incident.id }}/work_log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: description, time_spent: timeSpent })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    });
-}
-
-function uploadFile() {
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    
-    if (!file) return;
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    fetch(`/incident/{{ incident.id }}/upload`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.error || 'Upload failed');
-        }
-    });
-}
 </script>
-
-<!-- Work Log Modal -->
-<div class="modal fade" id="workLogModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add Work Log</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Work Description *</label>
-                    <textarea class="form-control" id="workLogDescription" rows="3" placeholder="Describe the work performed..." required></textarea>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Time Spent (hours)</label>
-                    <input type="number" class="form-control" id="workLogTime" step="0.5" min="0" placeholder="0.5">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="addWorkLog()" data-bs-dismiss="modal">Add Log</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- File Upload Modal -->
-<div class="modal fade" id="uploadModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Upload Attachment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Select File</label>
-                    <input type="file" class="form-control" id="fileInput" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif">
-                    <small class="text-muted">Max file size: 16MB. Allowed: PDF, DOC, TXT, Images</small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="uploadFile()" data-bs-dismiss="modal">Upload</button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}

@@ -4,173 +4,234 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="content-card">
-                <div class="content-header">
-                    <h4 class="mb-0">
-                        <i class="fas fa-tasks me-2"></i>Bulk Actions
-                    </h4>
+    <div class="content-card fade-in-up">
+        <div class="content-header">
+            <h4 class="mb-0">
+                <i class="fas fa-tasks me-2"></i>Bulk Actions
+            </h4>
+            <p class="text-muted mb-0">Perform actions on multiple incidents at once</p>
+        </div>
+        <div class="content-body">
+            <!-- Action Controls -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <select class="form-select" id="bulkAction">
+                        <option value="">Select Action</option>
+                        <option value="assign">Assign to Engineer</option>
+                        <option value="status">Change Status</option>
+                        <option value="priority">Change Priority</option>
+                        {% if session.role == 'admin' %}
+                        <option value="delete">Delete Incidents</option>
+                        {% endif %}
+                    </select>
                 </div>
-                <div class="content-body">
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6>Select Action:</h6>
-                            <select class="form-select" id="bulkAction">
-                                <option value="">Choose Action</option>
-                                {% if session.role in ['admin', 'manager'] %}
-                                <option value="assign">Bulk Assign</option>
-                                <option value="status">Change Status</option>
-                                <option value="priority">Change Priority</option>
-                                {% endif %}
-                                {% if session.role == 'admin' %}
-                                <option value="delete">Bulk Delete</option>
-                                {% endif %}
-                            </select>
-                        </div>
-                        <div class="col-md-6" id="actionOptions" style="display:none">
-                            <!-- Dynamic options based on selected action -->
-                        </div>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th><input type="checkbox" id="selectAll"></th>
-                                    <th>ID</th>
-                                    <th>Title</th>
-                                    <th>Priority</th>
-                                    <th>Status</th>
-                                    <th>Assigned To</th>
-                                    <th>Created</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for incident in incidents %}
-                                <tr>
-                                    <td><input type="checkbox" class="incident-checkbox" value="{{ incident.id }}"></td>
-                                    <td>#{{ incident.id }}</td>
-                                    <td>{{ incident.title }}</td>
-                                    <td><span class="badge severity-{{ incident.priority }}">{{ incident.priority.title() }}</span></td>
-                                    <td><span class="badge status-{{ incident.status }}">{{ incident.status.replace('_', ' ').title() }}</span></td>
-                                    <td>{{ incident.assignee.username if incident.assignee else 'Unassigned' }}</td>
-                                    <td>{{ incident.created_at.strftime('%m/%d/%Y') }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between mt-4">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left me-1"></i>Back
-                        </a>
-                        <button class="btn btn-primary" onclick="executeBulkAction()" id="executeBtn" disabled>
-                            <i class="fas fa-play me-1"></i>Execute Action
-                        </button>
+                <div class="col-md-3">
+                    <select class="form-select" id="actionValue" style="display:none;">
+                        <!-- Options populated by JavaScript -->
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary" onclick="executeBulkAction()" disabled id="executeBtn">
+                        <i class="fas fa-play me-1"></i>Execute Action
+                    </button>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                        <label class="form-check-label" for="selectAll">
+                            Select All
+                        </label>
                     </div>
                 </div>
             </div>
+
+            <!-- Incidents Table -->
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" id="masterCheckbox" onchange="toggleSelectAll()">
+                            </th>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for incident in incidents %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="incident-checkbox" value="{{ incident.id }}" onchange="updateExecuteButton()">
+                            </td>
+                            <td>
+                                <a href="/incident/{{ incident.id }}" class="text-decoration-none">
+                                    #{{ incident.id }}
+                                </a>
+                            </td>
+                            <td>
+                                <strong>{{ incident.title }}</strong>
+                                <br><small class="text-muted">{{ incident.category.title() }}</small>
+                            </td>
+                            <td>
+                                <span class="badge severity-{{ incident.priority }}">
+                                    {{ incident.priority.title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge status-{{ incident.status }}">
+                                    {{ incident.status.replace('_', ' ').title() }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if incident.assignee %}
+                                    {{ incident.assignee.username }}
+                                    {% if incident.assignee.specialization %}
+                                        <br><small class="text-muted">{{ incident.assignee.specialization.title() }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ incident.created_at.strftime('%m/%d/%Y') }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if not incidents %}
+            <div class="text-center py-5">
+                <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No incidents found</h5>
+                <p class="text-muted">There are no incidents available for bulk actions</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
 <script>
-document.getElementById('selectAll').addEventListener('change', function() {
-    const checkboxes = document.querySelectorAll('.incident-checkbox');
-    checkboxes.forEach(cb => cb.checked = this.checked);
-    updateExecuteButton();
-});
-
-document.querySelectorAll('.incident-checkbox').forEach(cb => {
-    cb.addEventListener('change', updateExecuteButton);
-});
+const users = [
+    {% for user in users %}
+    { id: {{ user.id }}, username: '{{ user.username }}', specialization: '{{ user.specialization or "" }}' },
+    {% endfor %}
+];
 
 document.getElementById('bulkAction').addEventListener('change', function() {
     const action = this.value;
-    const optionsDiv = document.getElementById('actionOptions');
+    const valueSelect = document.getElementById('actionValue');
     
-    if (action) {
-        optionsDiv.style.display = 'block';
-        let html = '<h6>Options:</h6>';
-        
-        switch(action) {
-            case 'assign':
-                html += '<select class="form-select" id="assignTo"><option value="">Select Engineer</option>';
-                {% for user in users %}
-                {% if user.role == 'engineer' %}
-                html += '<option value="{{ user.id }}">{{ user.username }}</option>';
-                {% endif %}
-                {% endfor %}
-                html += '</select>';
-                break;
-            case 'status':
-                html += '<select class="form-select" id="newStatus">';
-                html += '<option value="open">Open</option>';
-                html += '<option value="in_progress">In Progress</option>';
-                html += '<option value="resolved">Resolved</option>';
-                html += '<option value="closed">Closed</option>';
-                html += '</select>';
-                break;
-            case 'priority':
-                html += '<select class="form-select" id="newPriority">';
-                html += '<option value="low">Low</option>';
-                html += '<option value="medium">Medium</option>';
-                html += '<option value="high">High</option>';
-                html += '<option value="critical">Critical</option>';
-                html += '</select>';
-                break;
-        }
-        
-        optionsDiv.innerHTML = html;
-    } else {
-        optionsDiv.style.display = 'none';
+    valueSelect.innerHTML = '';
+    valueSelect.style.display = 'none';
+    
+    if (action === 'assign') {
+        valueSelect.style.display = 'block';
+        valueSelect.innerHTML = '<option value="">Select Engineer</option>';
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = user.username + (user.specialization ? ` (${user.specialization})` : '');
+            valueSelect.appendChild(option);
+        });
+    } else if (action === 'status') {
+        valueSelect.style.display = 'block';
+        valueSelect.innerHTML = `
+            <option value="">Select Status</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+        `;
+    } else if (action === 'priority') {
+        valueSelect.style.display = 'block';
+        valueSelect.innerHTML = `
+            <option value="">Select Priority</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+        `;
     }
+    
     updateExecuteButton();
 });
 
+function toggleSelectAll() {
+    const masterCheckbox = document.getElementById('masterCheckbox');
+    const checkboxes = document.querySelectorAll('.incident-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = masterCheckbox.checked;
+    });
+    
+    updateExecuteButton();
+}
+
 function updateExecuteButton() {
-    const selected = document.querySelectorAll('.incident-checkbox:checked').length;
+    const selectedIncidents = document.querySelectorAll('.incident-checkbox:checked');
     const action = document.getElementById('bulkAction').value;
-    document.getElementById('executeBtn').disabled = !(selected > 0 && action);
+    const executeBtn = document.getElementById('executeBtn');
+    
+    executeBtn.disabled = selectedIncidents.length === 0 || !action;
 }
 
 function executeBulkAction() {
-    const selected = Array.from(document.querySelectorAll('.incident-checkbox:checked')).map(cb => cb.value);
+    const selectedIncidents = Array.from(document.querySelectorAll('.incident-checkbox:checked')).map(cb => parseInt(cb.value));
     const action = document.getElementById('bulkAction').value;
+    const actionValue = document.getElementById('actionValue').value;
     
-    if (selected.length === 0 || !action) return;
-    
-    let data = { incident_ids: selected, action: action };
-    
-    switch(action) {
-        case 'assign':
-            data.user_id = document.getElementById('assignTo').value;
-            break;
-        case 'status':
-            data.status = document.getElementById('newStatus').value;
-            break;
-        case 'priority':
-            data.priority = document.getElementById('newPriority').value;
-            break;
+    if (selectedIncidents.length === 0 || !action) {
+        alert('Please select incidents and an action');
+        return;
     }
     
-    if (confirm(`Execute ${action} on ${selected.length} incidents?`)) {
-        fetch('/api/bulk-actions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert(data.error || 'Action failed');
-            }
-        });
+    if (['assign', 'status', 'priority'].includes(action) && !actionValue) {
+        alert('Please select a value for the action');
+        return;
     }
+    
+    if (action === 'delete' && !confirm(`Are you sure you want to delete ${selectedIncidents.length} incidents? This action cannot be undone.`)) {
+        return;
+    }
+    
+    const payload = {
+        incident_ids: selectedIncidents,
+        action: action
+    };
+    
+    if (action === 'assign') {
+        payload.user_id = parseInt(actionValue);
+    } else if (action === 'status') {
+        payload.status = actionValue;
+    } else if (action === 'priority') {
+        payload.priority = actionValue;
+    }
+    
+    fetch('/api/bulk-actions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Successfully executed ${action} on ${selectedIncidents.length} incidents`);
+            location.reload();
+        } else {
+            alert('Error executing bulk action: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('Error executing bulk action: ' + error.message);
+    });
 }
 </script>
 {% endblock %}

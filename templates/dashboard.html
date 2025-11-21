@@ -67,12 +67,12 @@
                         </div>
                         <div>
                             {% if session.role in ['admin', 'manager', 'reporter'] %}
-                            <a href="{{ url_for('new_incident') }}" class="btn btn-primary btn-sm me-2">
+                            <a href="/incident/new" class="btn btn-primary btn-sm me-2">
                                 <i class="fas fa-plus me-1"></i>New Incident
                             </a>
                             {% endif %}
                             {% if session.role == 'admin' %}
-                            <a href="{{ url_for('admin_panel') }}" class="btn btn-secondary btn-sm">
+                            <a href="/admin_panel" class="btn btn-secondary btn-sm">
                                 <i class="fas fa-cog me-1"></i>Admin
                             </a>
                             {% endif %}
@@ -193,7 +193,7 @@
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                                 {% endif %}
-                                                <a href="{{ url_for('view_incident', id=incident.id) }}" class="btn btn-primary btn-sm">
+                                                <a href="/incident/{{ incident.id }}" class="btn btn-primary btn-sm">
                                                     <i class="fas fa-eye me-1"></i>
                                                     {% if session.role == 'engineer' %}Work
                                                     {% elif session.role == 'manager' %}Manage
@@ -212,7 +212,7 @@
                             <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
                             <h5 class="text-muted">No incidents found</h5>
                             <p class="text-muted">Create your first incident to get started</p>
-                            <a href="{{ url_for('new_incident') }}" class="btn btn-primary">
+                            <a href="/incident/new" class="btn btn-primary">
                                 <i class="fas fa-plus me-1"></i>Create Incident
                             </a>
                         </div>
@@ -234,11 +234,11 @@ function applyFilters() {
     if (priority) params.append('priority', priority);
     if (assignee) params.append('assignee', assignee);
     
-    window.location.href = '{{ url_for("dashboard") }}?' + params.toString();
+    window.location.href = '/dashboard?' + params.toString();
 }
 
 function clearFilters() {
-    window.location.href = '{{ url_for("dashboard") }}';
+    window.location.href = '/dashboard';
 }
 
 function quickAssign(incidentId) {

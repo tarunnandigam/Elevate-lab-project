@@ -96,6 +96,11 @@
                                         <button class="btn btn-sm btn-outline-{% if user.is_active %}danger{% else %}success{% endif %}" onclick="toggleUser({{ user.id }}, {{ user.is_active|lower }})">
                                             <i class="fas fa-{% if user.is_active %}ban{% else %}check{% endif %}"></i>
                                         </button>
+                                        {% if user.role != 'admin' %}
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser({{ user.id }}, '{{ user.username }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -156,17 +161,43 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Permissions</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="canCreateIncidents" checked>
-                            <label class="form-check-label">Can Create Incidents</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="canViewAllIncidents">
-                            <label class="form-check-label">Can View All Incidents</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="canAssignIncidents">
-                            <label class="form-check-label">Can Assign Incidents</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="create" checked>
+                                    <label class="form-check-label">Create Incidents</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="read">
+                                    <label class="form-check-label">Read All Incidents</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="update">
+                                    <label class="form-check-label">Update Incidents</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="delete">
+                                    <label class="form-check-label">Delete Incidents</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="assign">
+                                    <label class="form-check-label">Assign Incidents</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="close">
+                                    <label class="form-check-label">Close Incidents</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="bulk_actions">
+                                    <label class="form-check-label">Bulk Actions</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="user_management">
+                                    <label class="form-check-label">User Management</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -196,6 +227,17 @@ function editUser(id, username, email, role, specialization) {
     document.getElementById('role').value = role;
     document.getElementById('specialization').value = specialization;
     document.getElementById('password').required = false;
+    
+    fetch(`/api/users/${id}`)
+    .then(response => response.json())
+    .then(data => {
+        const permissions = data.permissions || [];
+        ['create', 'read', 'update', 'delete', 'assign', 'close', 'bulk_actions', 'user_management'].forEach(perm => {
+            const checkbox = document.getElementById(perm);
+            if (checkbox) checkbox.checked = permissions.includes(perm);
+        });
+    });
+    
     toggleSpecialization();
     new bootstrap.Modal(document.getElementById('userModal')).show();
 }
@@ -207,11 +249,16 @@ function saveUser() {
         password: document.getElementById('password').value,
         role: document.getElementById('role').value,
         specialization: document.getElementById('specialization').value,
-        permissions: JSON.stringify({
-            canCreateIncidents: document.getElementById('canCreateIncidents').checked,
-            canViewAllIncidents: document.getElementById('canViewAllIncidents').checked,
-            canAssignIncidents: document.getElementById('canAssignIncidents').checked
-        })
+        permissions: [
+            document.getElementById('create').checked ? 'create' : null,
+            document.getElementById('read').checked ? 'read' : null,
+            document.getElementById('update').checked ? 'update' : null,
+            document.getElementById('delete').checked ? 'delete' : null,
+            document.getElementById('assign').checked ? 'assign' : null,
+            document.getElementById('close').checked ? 'close' : null,
+            document.getElementById('bulk_actions').checked ? 'bulk_actions' : null,
+            document.getElementById('user_management').checked ? 'user_management' : null
+        ].filter(p => p !== null)
     };
     
     const url = editingUserId ? `/api/users/${editingUserId}` : '/api/users';
@@ -244,6 +291,33 @@ function toggleUser(userId, isActive) {
             location.reload();
         }
     });
+}
+
+function deleteUser(userId, username) {
+    if (confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+        fetch(`/api/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('User deleted successfully');
+                location.reload();
+            } else {
+                alert(data.error || 'Error deleting user');
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            alert('Error deleting user: ' + error.message);
+        });
+    }
 }
 
 function exportUsers() {

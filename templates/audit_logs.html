@@ -4,95 +4,221 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="content-card">
-                <div class="content-header">
-                    <h4 class="mb-0">
-                        <i class="fas fa-history me-2"></i>System Audit Logs
-                    </h4>
+    <div class="content-card fade-in-up">
+        <div class="content-header">
+            <h4 class="mb-0">
+                <i class="fas fa-history me-2"></i>Audit Logs
+            </h4>
+            <p class="text-muted mb-0">Complete system activity trail</p>
+        </div>
+        <div class="content-body">
+            <!-- Filters -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <select class="form-select" id="actionFilter" onchange="filterLogs()">
+                        <option value="">All Actions</option>
+                        <option value="create_user">Create User</option>
+                        <option value="update_user">Update User</option>
+                        <option value="delete_user">Delete User</option>
+                        <option value="create_incident">Create Incident</option>
+                        <option value="update_incident">Update Incident</option>
+                        <option value="assign_incident">Assign Incident</option>
+                        <option value="add_comment">Add Comment</option>
+                        <option value="password_change">Password Change</option>
+                    </select>
                 </div>
-                <div class="content-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Timestamp</th>
-                                    <th>User</th>
-                                    <th>Action</th>
-                                    <th>Resource</th>
-                                    <th>Details</th>
-                                    <th>IP Address</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for log in logs.items %}
-                                <tr>
-                                    <td>{{ log.created_at.strftime('%m/%d/%Y %H:%M:%S') }}</td>
-                                    <td>
-                                        {% if log.user %}
-                                        <span class="badge bg-primary">{{ log.user.username }}</span>
-                                        {% else %}
-                                        <span class="text-muted">System</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge 
-                                        {% if 'create' in log.action %}bg-success
-                                        {% elif 'delete' in log.action %}bg-danger
-                                        {% elif 'update' in log.action %}bg-warning
-                                        {% else %}bg-info{% endif %}">
-                                            {{ log.action.replace('_', ' ').title() }}
-                                        </span>
-                                    </td>
-                                    <td>{{ log.resource_type.title() }} {% if log.resource_id %}#{{ log.resource_id }}{% endif %}</td>
-                                    <td>{{ log.details or '-' }}</td>
-                                    <td><small class="text-muted">{{ log.ip_address or '-' }}</small></td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <!-- Pagination -->
-                    {% if logs.pages > 1 %}
-                    <nav aria-label="Audit logs pagination">
-                        <ul class="pagination justify-content-center">
-                            {% if logs.has_prev %}
-                            <li class="page-item">
-                                <a class="page-link" href="{{ url_for('audit_logs', page=logs.prev_num) }}">Previous</a>
-                            </li>
-                            {% endif %}
-                            
-                            {% for page_num in logs.iter_pages() %}
-                                {% if page_num %}
-                                    {% if page_num != logs.page %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('audit_logs', page=page_num) }}">{{ page_num }}</a>
-                                    </li>
-                                    {% else %}
-                                    <li class="page-item active">
-                                        <span class="page-link">{{ page_num }}</span>
-                                    </li>
-                                    {% endif %}
+                <div class="col-md-3">
+                    <select class="form-select" id="resourceFilter" onchange="filterLogs()">
+                        <option value="">All Resources</option>
+                        <option value="user">User</option>
+                        <option value="incident">Incident</option>
+                        <option value="comment">Comment</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" class="form-control" id="dateFilter" onchange="filterLogs()">
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                        <i class="fas fa-times me-1"></i>Clear Filters
+                    </button>
+                </div>
+            </div>
+
+            <!-- Audit Logs Table -->
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Resource</th>
+                            <th>Details</th>
+                            <th>IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditTableBody">
+                        {% for log in logs.items %}
+                        <tr data-action="{{ log.action }}" data-resource="{{ log.resource_type }}" data-date="{{ log.created_at.strftime('%Y-%m-%d') }}">
+                            <td>
+                                <small>{{ log.created_at.strftime('%m/%d/%Y %I:%M:%S %p') }}</small>
+                            </td>
+                            <td>
+                                {% if log.user %}
+                                    <strong>{{ log.user.username }}</strong>
+                                    <br><small class="text-muted">{{ log.user.role.title() }}</small>
                                 {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
+                                    <span class="text-muted">System</span>
                                 {% endif %}
-                            {% endfor %}
-                            
-                            {% if logs.has_next %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ log.action.replace('_', ' ').title() }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ log.resource_type.title() }}</span>
+                                {% if log.resource_id %}
+                                    <br><small class="text-muted">ID: {{ log.resource_id }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.details %}
+                                    <small>{{ log.details }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ log.ip_address or 'Unknown' }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if not logs.items %}
+            <div class="text-center py-5">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No audit logs found</h5>
+                <p class="text-muted">System activity will appear here</p>
+            </div>
+            {% endif %}
+
+            <!-- Pagination -->
+            {% if logs.pages > 1 %}
+            <nav aria-label="Audit logs pagination">
+                <ul class="pagination justify-content-center">
+                    {% if logs.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.prev_num }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in logs.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != logs.page %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('audit_logs', page=logs.next_num) }}">Next</a>
+                                <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
                             </li>
                             {% endif %}
-                        </ul>
-                    </nav>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.next_num }}">Next</a>
+                    </li>
                     {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            <!-- Export Options -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" onclick="exportLogs('csv')">
+                            <i class="fas fa-file-csv me-1"></i>Export CSV
+                        </button>
+                        <button class="btn btn-outline-success" onclick="exportLogs('excel')">
+                            <i class="fas fa-file-excel me-1"></i>Export Excel
+                        </button>
+                        <button class="btn btn-outline-info" onclick="printLogs()">
+                            <i class="fas fa-print me-1"></i>Print Logs
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function filterLogs() {
+    const actionFilter = document.getElementById('actionFilter').value.toLowerCase();
+    const resourceFilter = document.getElementById('resourceFilter').value.toLowerCase();
+    const dateFilter = document.getElementById('dateFilter').value;
+    const rows = document.querySelectorAll('#auditTableBody tr');
+    
+    rows.forEach(row => {
+        const action = row.dataset.action.toLowerCase();
+        const resource = row.dataset.resource.toLowerCase();
+        const date = row.dataset.date;
+        
+        let showRow = true;
+        
+        if (actionFilter && !action.includes(actionFilter)) {
+            showRow = false;
+        }
+        
+        if (resourceFilter && resource !== resourceFilter) {
+            showRow = false;
+        }
+        
+        if (dateFilter && date !== dateFilter) {
+            showRow = false;
+        }
+        
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+
+function clearFilters() {
+    document.getElementById('actionFilter').value = '';
+    document.getElementById('resourceFilter').value = '';
+    document.getElementById('dateFilter').value = '';
+    filterLogs();
+}
+
+function exportLogs(format) {
+    // Placeholder for export functionality
+    alert(`Export to ${format.toUpperCase()} functionality would be implemented here`);
+}
+
+function printLogs() {
+    window.print();
+}
+
+// Auto-refresh every 30 seconds
+setInterval(() => {
+    location.reload();
+}, 30000);
+</script>
+
+<style>
+@media print {
+    .btn, .navbar, .pagination {
+        display: none !important;
+    }
+}
+</style>
 {% endblock %}

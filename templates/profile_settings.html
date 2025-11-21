@@ -3,81 +3,71 @@
 {% block title %}Profile Settings - Incident Management{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
+<div class="container-fluid">
+    <div class="row">
         <div class="col-lg-8">
-            <div class="content-card">
+            <div class="content-card fade-in-up">
                 <div class="content-header">
                     <h4 class="mb-0">
                         <i class="fas fa-user-cog me-2"></i>Profile Settings
                     </h4>
+                    <p class="text-muted mb-0">Manage your account information</p>
                 </div>
                 <div class="content-body">
-                    <form method="POST">
+                    <form method="POST" action="/profile-settings">
                         <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Username</label>
-                                <input type="text" class="form-control" value="{{ user.username }}" readonly>
-                                <small class="text-muted">Username cannot be changed</small>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="username" value="{{ user.username }}" readonly>
+                                    <small class="text-muted">Username cannot be changed</small>
+                                </div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Role</label>
-                                <input type="text" class="form-control" value="{{ user.role.title() }}" readonly>
-                                <small class="text-muted">Role is managed by administrators</small>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" class="form-control" name="email" value="{{ user.email }}" required>
-                        </div>
-                        
-                        {% if user.specialization %}
-                        <div class="mb-3">
-                            <label class="form-label">Specialization</label>
-                            <input type="text" class="form-control" value="{{ user.specialization.title() }}" readonly>
-                        </div>
-                        {% endif %}
-                        
-                        {% if user.role != 'admin' %}
-                        <div class="mb-3">
-                            <label class="form-label">New Password</label>
-                            <input type="password" class="form-control" name="password" placeholder="Leave blank to keep current password">
-                            <small class="text-muted">Password changes are logged for security</small>
-                        </div>
-                        {% else %}
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-control" placeholder="Admin password managed separately" readonly>
-                            <small class="text-muted">Admin passwords require special authorization to change</small>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="mb-4">
-                            <label class="form-label">Member Since</label>
-                            <input type="text" class="form-control" value="{{ user.created_at.strftime('%B %d, %Y') }}" readonly>
-                        </div>
-                        
-                        <hr>
-                        
-                        <h6 class="mb-3">Notification Preferences</h6>
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
-                                <label class="form-check-label">Email notifications for assigned incidents</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="slaAlerts" checked>
-                                <label class="form-check-label">SLA breach alerts</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="statusUpdates" checked>
-                                <label class="form-check-label">Status update notifications</label>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="role" class="form-label">Role</label>
+                                    <input type="text" class="form-control" id="role" value="{{ user.role.title() }}" readonly>
+                                    <small class="text-muted">Contact admin to change role</small>
+                                </div>
                             </div>
                         </div>
-                        
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="specialization" class="form-label">Specialization</label>
+                                    <input type="text" class="form-control" id="specialization" 
+                                           value="{{ user.specialization.title() if user.specialization else 'Not specified' }}" readonly>
+                                    <small class="text-muted">Contact admin to change specialization</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="password" name="password" 
+                                           placeholder="Leave blank to keep current password">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="confirm_password" class="form-label">Confirm Password</label>
+                                    <input type="password" class="form-control" id="confirm_password" 
+                                           placeholder="Confirm new password">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <a href="/dashboard" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
                             </a>
                             <button type="submit" class="btn btn-primary">
@@ -87,115 +77,138 @@
                     </form>
                 </div>
             </div>
-            
-            <!-- Account Statistics -->
-            <div class="content-card mt-4">
+        </div>
+
+        <div class="col-lg-4">
+            <!-- User Stats -->
+            <div class="content-card fade-in-up mb-4">
                 <div class="content-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-chart-user me-2"></i>My Statistics
-                    </h5>
+                    <h6 class="mb-0">Account Statistics</h6>
                 </div>
                 <div class="content-body">
-                    <div class="row">
-                        {% if user.role == 'admin' %}
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon total">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('total_users', 0) }}</h4>
-                                <p class="text-muted mb-0">Total Users</p>
-                            </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Days Active:</span>
+                        <strong>{{ days_active }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Comments Posted:</span>
+                        <strong>{{ comment_count }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Account Status:</span>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Member Since:</span>
+                        <strong>{{ user.created_at.strftime('%B %Y') }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Role-specific Stats -->
+            <div class="content-card fade-in-up">
+                <div class="content-header">
+                    <h6 class="mb-0">{{ user.role.title() }} Statistics</h6>
+                </div>
+                <div class="content-body">
+                    {% if user.role == 'admin' %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total Users:</span>
+                            <strong>{{ stats.total_users }}</strong>
                         </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon resolved">
-                                    <i class="fas fa-clipboard-list"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('total_incidents', 0) }}</h4>
-                                <p class="text-muted mb-0">Total Incidents</p>
-                            </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Total Incidents:</span>
+                            <strong>{{ stats.total_incidents }}</strong>
                         </div>
-                        {% elif user.role == 'manager' %}
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon total">
-                                    <i class="fas fa-users-cog"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('team_size', 0) }}</h4>
-                                <p class="text-muted mb-0">Team Members</p>
-                            </div>
+                    {% elif user.role == 'manager' %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Team Size:</span>
+                            <strong>{{ stats.team_size }}</strong>
                         </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon resolved">
-                                    <i class="fas fa-tasks"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('managed_incidents', 0) }}</h4>
-                                <p class="text-muted mb-0">Managed Incidents</p>
-                            </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Managed Incidents:</span>
+                            <strong>{{ stats.managed_incidents }}</strong>
                         </div>
-                        {% elif user.role == 'engineer' %}
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon resolved">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('resolved', 0) }}</h4>
-                                <p class="text-muted mb-0">Resolved</p>
-                            </div>
+                    {% elif user.role == 'engineer' %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Resolved:</span>
+                            <strong>{{ stats.resolved }}</strong>
                         </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon progress">
-                                    <i class="fas fa-cog"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('in_progress', 0) }}</h4>
-                                <p class="text-muted mb-0">In Progress</p>
-                            </div>
+                        <div class="d-flex justify-content-between">
+                            <span>In Progress:</span>
+                            <strong>{{ stats.in_progress }}</strong>
                         </div>
-                        {% elif user.role == 'reporter' %}
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon total">
-                                    <i class="fas fa-clipboard-list"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('created', 0) }}</h4>
-                                <p class="text-muted mb-0">Created</p>
-                            </div>
+                    {% elif user.role == 'reporter' %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Created:</span>
+                            <strong>{{ stats.created }}</strong>
                         </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon resolved">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ stats.get('resolved', 0) }}</h4>
-                                <p class="text-muted mb-0">Resolved</p>
-                            </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Resolved:</span>
+                            <strong>{{ stats.resolved }}</strong>
                         </div>
-                        {% endif %}
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon open">
-                                    <i class="fas fa-comments"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ comment_count }}</h4>
-                                <p class="text-muted mb-0">Comments</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon total">
-                                    <i class="fas fa-calendar"></i>
-                                </div>
-                                <h4 class="fw-bold mb-1">{{ days_active }}</h4>
-                                <p class="text-muted mb-0">Days Active</p>
-                            </div>
-                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Security Info -->
+            <div class="content-card fade-in-up mt-4">
+                <div class="content-header">
+                    <h6 class="mb-0">Security Information</h6>
+                </div>
+                <div class="content-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Password Security:</strong><br>
+                        Use a strong password with at least 8 characters, including uppercase, lowercase, numbers, and symbols.
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Email Notifications:</strong><br>
+                        You will receive email notifications for incident updates and security changes.
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Password confirmation validation
+document.getElementById('confirm_password').addEventListener('input', function() {
+    const password = document.getElementById('password').value;
+    const confirmPassword = this.value;
+    
+    if (password && confirmPassword && password !== confirmPassword) {
+        this.setCustomValidity('Passwords do not match');
+    } else {
+        this.setCustomValidity('');
+    }
+});
+
+document.getElementById('password').addEventListener('input', function() {
+    const confirmPassword = document.getElementById('confirm_password');
+    if (confirmPassword.value) {
+        confirmPassword.dispatchEvent(new Event('input'));
+    }
+});
+
+// Form submission validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    if (password && password !== confirmPassword) {
+        e.preventDefault();
+        alert('Passwords do not match');
+        return false;
+    }
+    
+    if (password && password.length < 6) {
+        e.preventDefault();
+        alert('Password must be at least 6 characters long');
+        return false;
+    }
+});
+</script>
 {% endblock %}

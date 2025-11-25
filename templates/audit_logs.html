@@ -200,8 +200,9 @@ function clearFilters() {
 }
 
 function exportLogs(format) {
-    // Placeholder for export functionality
-    alert(`Export to ${format.toUpperCase()} functionality would be implemented here`);
+    if (format === 'csv' || format === 'excel') {
+        window.open(`/api/audit-logs/export/csv`, '_blank');
+    }
 }
 
 function printLogs() {

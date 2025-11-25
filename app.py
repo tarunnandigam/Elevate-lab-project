@@ -749,6 +749,70 @@ def update_incident(id):
     
     return jsonify({'success': True})
 
+@app.route('/api/reports/export/<format>')
+@login_required
+def export_reports(format):
+    user = User.query.get(session['user_id'])
+    if user.role not in ['admin', 'manager']:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if format == 'csv':
+        import csv
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow(['Metric', 'Value'])
+        writer.writerow(['Total Incidents', Incident.query.filter_by(is_deleted=False).count()])
+        writer.writerow(['Open Incidents', Incident.query.filter_by(status='open', is_deleted=False).count()])
+        writer.writerow(['Resolved Incidents', Incident.query.filter_by(status='resolved', is_deleted=False).count()])
+        writer.writerow(['Critical Incidents', Incident.query.filter_by(priority='critical', is_deleted=False).count()])
+        
+        response = app.response_class(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=incident_report.csv'}
+        )
+        return response
+    
+    return jsonify({'error': 'Format not supported'}), 400
+
+@app.route('/api/audit-logs/export/<format>')
+@login_required
+def export_audit_logs(format):
+    user = User.query.get(session['user_id'])
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    if format == 'csv':
+        import csv
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow(['Timestamp', 'User', 'Action', 'Resource Type', 'Resource ID', 'Details', 'IP Address'])
+        
+        logs = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(1000).all()
+        for log in logs:
+            writer.writerow([
+                log.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                log.user.username if log.user else 'System',
+                log.action,
+                log.resource_type,
+                log.resource_id or '',
+                log.details or '',
+                log.ip_address or ''
+            ])
+        
+        response = app.response_class(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=audit_logs.csv'}
+        )
+        return response
+    
+    return jsonify({'error': 'Format not supported'}), 400
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('error.html', error_code=404, error_message='Page not found'), 404
